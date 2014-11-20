@@ -31,9 +31,9 @@ Additional rules:
 The big bird has 2 rules:
 
 - go to the center of the flock
-- - set a maximum velocity (otherwise, velocity keeps increasing and the big bird is hardly on the screen)
--
-- Each of the rules has one or two parameters, to make their effect stronger or weaker. This can also be tweaked towards the actual visualisation used.
+- set a maximum velocity (otherwise, velocity keeps increasing and the big bird is hardly on the screen)
+
+Each of the rules has one or two parameters, to make their effect stronger or weaker. This can also be tweaked towards the actual visualisation used.
 
 ## Implementation notes
 
