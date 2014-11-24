@@ -2,6 +2,7 @@
 
 import numpy as np
 from numpy.core.umath_tests import inner1d
+from boundingbox import BoundingBox
 
 class VectorCollection(object):
 	def __init__(self, size, dimensions, max_velocity2, start_center = None):
@@ -9,6 +10,7 @@ class VectorCollection(object):
 		self.dimensions = dimensions
 		self.max_velocity2 = max_velocity2
 		self._center = None
+		self._bounding_box = None
 		self._average_velocity = np.zeros(dimensions)
 		if start_center is not None:
 			self._init_position(start_center)
@@ -35,6 +37,7 @@ class VectorCollection(object):
 		else:
 			self.position += factor * self.velocity
 		self._center = None
+		self._bounding_box = None
 	
 	def update_velocity(self):
 		self.calculate_velocity()
@@ -58,6 +61,35 @@ class VectorCollection(object):
 		mask = dist2_vector < threshold
 		v[mask] = (np.sqrt(self.max_velocity2 / dist2_vector[mask]) * diff_matrix[mask].T).T
 		return v
+	
+	def c_int(self, neighborhood):
+		c = 0.0
+		
+		norm_velocity = self.velocity / np.linalg.norm(self.velocity, axis=1)[:,None]
+
+		for i in xrange(self.size):
+			neighbors = self.neighbors(i, neighborhood)
+			c += inner1d(norm_velocity[i], norm_velocity[neighbors]).sum()
+		
+		return c / (neighborhood * self.size)
+	
+	# get the first n neighbors of position i
+	# @return unordered sequence of neighbors
+	def neighbors(self, i, n):
+		diff_matrix = self.position - self.position[i]
+		dist2_vector = inner1d(diff_matrix, diff_matrix)
+		neighbor = np.argpartition(dist2_vector, n + 1)[:n + 1]
+		return neighbor[neighbor != i]
+	
+	@property
+	def bounding_box(self):
+		if self._bounding_box is None:
+			self._bounding_box = BoundingBox(points=self.position)
+		return self._bounding_box
+	
+	@property
+	def bounding_box_diagonal(self):
+		return self.bounding_box.diagonal
 	
 	@property
 	def center(self):
@@ -122,8 +154,8 @@ def avoid_neighbors(positions, threshold2, factor, size, dimensions, q):
 
 class Boids(VectorCollection):
 	def __init__(self, num_boids, big_boids, dimensions = 3, start_center = [1.5,1.5,0.5], rule1_factor = 0.01,
-			rule2_threshold = 0.0005, rule2_factor = 1.0, rule3_factor = 0.16, bounds_factor = 0.1, escape_threshold = 0.1,
-			max_velocity2 = 0.01, rule_direction = 0.002):
+			rule2_threshold = 0.0005, rule2_factor = 1.0, rule3_factor = 0.16, bounds_factor = 0.01, escape_threshold = 0.1,
+			max_velocity2 = 0.01, rule_direction = 0.002, in_random_direction = False, enforce_bounds = True):
 		super(Boids, self).__init__(num_boids, dimensions, max_velocity2, start_center = start_center)
 		self.big_boids = big_boids
 		
@@ -137,12 +169,19 @@ class Boids(VectorCollection):
 		self.rule_direction = rule_direction
 		self.direction = np.array(dimensions*[0.5])
 		self.direction_mask = np.array(self.size*[False])
+		self.in_random_direction = in_random_direction
+		self.enforce_bounds = enforce_bounds
 
 	def calculate_velocity(self):
-		self.velocity += self.converge_velocity(self.average_velocity, self.rule3_factor)
+		for b in xrange(self.size):
+			self.velocity[b] += self.converge_velocity_neighbors(b, 10, self.rule3_factor)
+
+		# self.velocity += self.converge_velocity(self.rule3_factor)
 		self.velocity += self.approach_position(self.center, self.rule1_factor)
-		# self.velocity += self.ruleBounds()
-		self.velocity += self.ruleDirection()
+		if self.enforce_bounds:
+			self.velocity += self.ruleBounds()
+		if (self.in_random_direction):
+			self.velocity += self.ruleDirection()
 		
 		for e in self.escapes:
 			self.velocity += self.escape_position(e, self.escape_threshold)
@@ -166,14 +205,19 @@ class Boids(VectorCollection):
 		else:
 			return 0.0
 
-	def converge_velocity(self, center_velocity, factor):
-		return (center_velocity - self.velocity)*factor
+	def converge_velocity(self, factor):
+		return (self.average_velocity - self.velocity)*factor
+
+	def converge_velocity_neighbors(self, bj, num_neighbors, factor):
+		neighbors = self.neighbors(bj, num_neighbors)
+		neighbor_velocity = self.velocity[neighbors].sum(axis=0) / len(neighbors)
+		return (neighbor_velocity - self.velocity[bj])*factor
 
 	def ruleBounds(self):
 		v = np.zeros((self.dimensions, self.size))
 		for i in xrange(self.dimensions):
-			v[i][self.position.T[i] < 0.0] = self.bounds_factor
-			v[i][self.position.T[i] > 1.0] = -self.bounds_factor
+			v[i][self.position.T[i] < -0.5] = self.bounds_factor
+			v[i][self.position.T[i] > 1.5] = -self.bounds_factor
 		
 		return v.T
 	
