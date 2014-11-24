@@ -155,7 +155,7 @@ def avoid_neighbors(positions, threshold2, factor, size, dimensions, q):
 class Boids(VectorCollection):
 	def __init__(self, num_boids, big_boids, dimensions = 3, start_center = [1.5,1.5,0.5], rule1_factor = 0.01,
 			rule2_threshold = 0.0005, rule2_factor = 1.0, rule3_factor = 0.16, bounds_factor = 0.01, escape_threshold = 0.1,
-			max_velocity2 = 0.01, rule_direction = 0.002, in_random_direction = False, enforce_bounds = True):
+			max_velocity2 = 0.01, rule_direction = 0.002, in_random_direction = False, enforce_bounds = True, use_global_velocity_average = False):
 		super(Boids, self).__init__(num_boids, dimensions, max_velocity2, start_center = start_center)
 		self.big_boids = big_boids
 		
@@ -171,12 +171,15 @@ class Boids(VectorCollection):
 		self.direction_mask = np.array(self.size*[False])
 		self.in_random_direction = in_random_direction
 		self.enforce_bounds = enforce_bounds
+		self.use_global_velocity_average = use_global_velocity_average
 
 	def calculate_velocity(self):
-		for b in xrange(self.size):
-			self.velocity[b] += self.converge_velocity_neighbors(b, 10, self.rule3_factor)
+		if self.use_global_velocity_average:
+			self.velocity += self.converge_velocity(self.rule3_factor)
+		else:
+			for b in xrange(self.size):
+				self.velocity[b] += self.converge_velocity_neighbors(b, 10, self.rule3_factor)
 
-		# self.velocity += self.converge_velocity(self.rule3_factor)
 		self.velocity += self.approach_position(self.center, self.rule1_factor)
 		if self.enforce_bounds:
 			self.velocity += self.ruleBounds()

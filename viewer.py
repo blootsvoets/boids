@@ -59,7 +59,8 @@ def create_boids_3(nboids=1000, nbig=1):
 		bounds_factor = 0.005,
 		
 		enforce_bounds = True,
-		in_random_direction = True
+		in_random_direction = True,
+		use_global_velocity_average = False
 		)
 
 	bb.set_boids(b)
