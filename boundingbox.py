@@ -3,8 +3,8 @@ import numpy as np
 class BoundingBox(object):
 	def __init__(self, min=None, max=None, points=None):
 		if min is not None and max is not None:
-			self._min = np.array(min)
-			self._max = np.array(max)
+			self._min = np.array(min,dtype=float)
+			self._max = np.array(max,dtype=float)
 		elif points is not None:
 			self._min = points.min(axis=0)
 			self._max = points.max(axis=0)
