@@ -49,3 +49,7 @@ class BoundingBox(object):
 	@property
 	def diagonal(self):
 		return np.linalg.norm(self.size)
+
+	def contains(self, pos):
+		return all((pos > self.min) & (pos < self.max))
+		

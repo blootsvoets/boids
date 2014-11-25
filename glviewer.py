@@ -1,9 +1,11 @@
 from OpenGL.GL import *
 from OpenGL.GLU import *
+from OpenGL.GLUT import *
 from boundingbox import BoundingBox
 from math import cos, sin, radians
 from pygame.locals import *
 import pygame
+import numpy as np
 
 class GLPyGame3D(object):
 	def __init__(self, screen_width=1920, screen_height=1080):
@@ -18,16 +20,36 @@ class GLPyGame3D(object):
 		self.mouse_button_down = None				  # we keep track of only one button at a time
 		self.mouse_down_x = self.mouse_down_y = None
 		self.animate = True
+		self.show_shadow_boids = False
+		self.old_center = np.array([0.,0.,0.])
 	
 	def toggle_animate(self):
 		self.animate = not self.animate
 	
 	def toggle_velocity_vectors(self):
 		self.vis.show_velocity_vectors = not self.vis.show_velocity_vectors
-		
-	def draw(self, boids, big_boids):
-		self.vis.draw(boids, big_boids)
+
+	def toggle_shadow_boids(self):
+		self.show_shadow_boids = not self.show_shadow_boids
+	
+	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
+		self.vis.draw(boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids)
+		self.vis.print_text("Size: %0.1f" % (boids.bounding_box.diagonal), 0)
+		self.vis.print_text("Components: %d" % (len(boids.connected_components)), 1)
+		# self.vis.print_text("Velocity: %0.2f" % (boids.velocity_stddev), 2)
+		# self.vis.print_text("%0.3f; %0.3f; %0.3f" % (boids.c_int(5),boids.c_int(10),boids.c_int(20)), 6)
+		# self.vis.print_text("%0.3f; %0.3f" % (boids.c_int(50),boids.c_int(100)), 7)
+		if shadow_boids is not None:
+			self.vis.print_text("Unmodified", 3)
+			self.vis.print_text("Size: %0.1f" % (shadow_boids.bounding_box.diagonal), 4)
+			self.vis.print_text("Components: %d" % (len(shadow_boids.connected_components)), 5)
+			# self.vis.print_text("Orig. distance: %0.1f" % (shadow_boids.position_stddev), 4)
+			# self.vis.print_text("Orig. velocity: %0.1f" % (shadow_boids.velocity_stddev), 5)
 		pygame.display.flip()
+		self.old_center = boids.center
+		
+		# with open("/Users/joris/Desktop/velocity.csv", "a") as f:
+		# 	f.write("%0.2f,%0.1f,%0.2f,%0.2f,%0.1f,%0.2f\n" % (boids.bounding_box.diagonal,boids.position_stddev,boids.velocity_stddev,shadow_boids.bounding_box.diagonal,shadow_boids.position_stddev,shadow_boids.velocity_stddev))
 	
 	def next_event(self):
 		return pygame.event.poll()
@@ -49,8 +71,10 @@ class GLPyGame3D(object):
 			self.camAzimuth = self.vis.camAzimuth
 			self.camRotZ = self.vis.camRotZ
 			self.camDistance = self.vis.camDistance
+			self.has_motion = False
 	
 		elif event.type == MOUSEMOTION:
+			self.has_motion = True
 	
 			if self.mouse_button_down == MB_LEFT:
 				# Rotate
@@ -63,13 +87,18 @@ class GLPyGame3D(object):
 		
 		elif event.type == MOUSEBUTTONUP and self.mouse_button_down == event.button:
 			self.mouse_button_down = None
+			
+			if not self.has_motion:
+				return self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
+			
+		return None
 
 class GLVisualisation3D(object):
 	def __init__(self,
 			screen_width = 1920,
 			screen_height = 1080,
 			vertical_fov = 50,
-			bounding_box = BoundingBox([-2, -2, -2], [2, 2, 2]),
+			bounding_box = BoundingBox([-4, -4, -4], [5, 5, 5]),
 			show_velocity_vectors = False,
 			camAzimuth = 40.0,
 			camDistance = 6.0,
@@ -90,7 +119,60 @@ class GLVisualisation3D(object):
 		glEnable(GL_POINT_SMOOTH)				
 		glEnable(GL_LINE_SMOOTH)				
 		glEnableClientState(GL_VERTEX_ARRAY)
+	
+	def get_points3D(self, x, y):
+		cameraGLProjection = (GLdouble * 16)()
+		cameraGLView = (GLdouble * 16)()
+		cameraGLViewport = (GLint * 4)()
+
+		glViewport(0, 0, self.screen_width, self.screen_height)
+		glGetIntegerv( GL_VIEWPORT, cameraGLViewport )
+	
+		# read projection matrix
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		gluPerspective(self.vertical_fov, self.screen_aspect, 0.1, 1000.0)
+		glGetDoublev(GL_PROJECTION_MATRIX, cameraGLProjection)
+
+		# read view matrix
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		beta = radians(self.camAzimuth)
+		gamma = radians(self.camRotZ)
+
+		cx = self.camDistance
+		cy = cz = 0.0
+
+		# Rotate around Z
+		t = cx
+		cx = cx * cos(beta) + cy * sin(beta)
+		cy = t * sin(beta) + cy * cos(beta)
+
+		# Rotate around Y
+		t = cx
+		cx = cx * cos(gamma) - cz * sin(gamma)
+		cz = t * sin(gamma) + cz * cos(gamma)
 		
+		gluLookAt(cx, cy, cz, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
+		glGetDoublev(GL_MODELVIEW_MATRIX, cameraGLView)
+		
+		winX = float(x)
+		winY = float(self.screen_height - y)
+		
+		near = np.array(gluUnProject(winX, winY, 0.0, model=cameraGLView, proj=cameraGLProjection, view=cameraGLViewport))
+		far = np.array(gluUnProject(winX, winY, 1.0, model=cameraGLView, proj=cameraGLProjection, view=cameraGLViewport))
+		
+		# cameraProjection = np.matrix(np.array(cameraGLProjection).reshape((4,4)))
+		# cameraView = np.matrix(np.array(cameraGLView).reshape((4,4)))
+		#
+		# viewProjInv = np.linalg.inv(cameraProjection * cameraView)
+		# print viewProjInv
+		# near = np.dot(viewProjInv, np.array([x, y, 0.0, 1.0]))[:3]
+		# far = np.dot(viewProjInv, np.array([x, y, 1.0, 1.0]))[:3]
+		print "Near", near, "; far", far
+		
+		return (near, far)
+	
 	def setup_camera(self, cor_x, cor_y, cor_z, azimuth, rotz, distance):
 	
 		# NOTE: Y is up in this model
@@ -130,27 +212,37 @@ class GLVisualisation3D(object):
 		#GLfloat pos[] = { cx+cor_x, cy+cor_y, cz+cor_z, 0.0f };
 		#glLightfv(GL_LIGHT0, GL_POSITION, pos);
 		#
-	# def print_text(self, text):
-	# 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
-	#
-	#     blending = False
-	#     if glIsEnabled(GL_BLEND) :
-	#         blending = True
-	#
-	#     #glEnable(GL_BLEND)
-	#     glColor3f(1,1,1)
-	#
-	# 	S = self.screen_height / 4
-	# 	M = int(0.01 * self.screen_width)
-	#
-	# 	glWindowPos(self.screen_width - S - M, self.screen_height - 3*(S + M))
-	#     for ch in text :
-	#         glutBitmapCharacter( font , ctypes.c_int( ord(ch) ) )
-	#
-	#     if not blending :
-	#         glDisable(GL_BLEND)
-	
-	def draw_boids(self, boids, big_boids, show_velocity_vectors):
+	def print_text(self, text, line_num):
+		# glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
+
+		# blending = glIsEnabled(GL_BLEND)
+		S = self.screen_height / 4
+		M = int(0.01 * self.screen_width)
+
+		glViewport(self.screen_width - S - M, self.screen_height - 3*(S + M), S, S)
+
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		c = self.world.center
+		# Make view slightly larger to allow boids to go outside world range and still be visible
+		glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0) 
+
+		glMatrixMode(GL_MODELVIEW)			 
+		glLoadIdentity()
+		
+		# glEnable(GL_BLEND)
+		glColor3f(1,1,1)
+
+		glRasterPos(0.05, 0.95 - line_num * 0.1)
+		for ch in text:
+			glutBitmapCharacter( GLUT_BITMAP_9_BY_15 , ctypes.c_int( ord(ch) ) )
+		
+		# glMatrixMode(GL_MODELVIEW)
+
+		# if not blending :
+			# glDisable(GL_BLEND)
+
+	def draw_boids(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, show_shadow_boids = None, draw_shadow = False):
 		# Velocity vectors
 		if show_velocity_vectors:
 			glColor3f(1, 0, 0)
@@ -165,16 +257,38 @@ class GLVisualisation3D(object):
 		# Boids themselves
 	
 		glPointSize(3)
-		glColor3f(1, 1, 1)
-	
+		if shadow_boids is None:
+			glColor3f(1, 1, 1)
+		else:
+			glEnableClientState(GL_COLOR_ARRAY)
+			# pos_diff = np.ones(len(boids.position)) - boids.diff_position(shadow_boids)
+			vel_diff = np.ones(len(boids.position)) - 20*boids.diff_velocity(shadow_boids)
+			coloring = np.array([np.ones(len(boids.position)),vel_diff,vel_diff]).T
+			glColorPointer(3, GL_FLOAT, 0, coloring)
+		
 		glVertexPointer(3, GL_FLOAT, 0, boids.position)
 		glDrawArrays(GL_POINTS, 0, len(boids.position))
 	
+		if show_shadow_boids:
+			glDisableClientState(GL_COLOR_ARRAY)
+			glColor3f(0.2, 0.2, 0.5)
+			glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
+			glDrawArrays(GL_POINTS, 0, len(shadow_boids.position))
+	
+		elif shadow_boids is not None:
+			glDisableClientState(GL_COLOR_ARRAY)
 		#glBegin(GL_POINTS)
 		#for p in boids.position:
 		#	glVertex3f(*p)		
 		#glEnd()
 	
+		if len(boids.escapes) > 0:
+			glPointSize(5)
+			glColor3f(0, 0, 1)
+	
+			glVertexPointer(3, GL_FLOAT, 0, boids.escapes)
+			glDrawArrays(GL_POINTS, 0, len(boids.escapes))
+
 		# Big boids 
 	
 		glPointSize(10)
@@ -215,7 +329,7 @@ class GLVisualisation3D(object):
 			glVertex3f(self.world.max[0], self.world.min[1], z)
 		glEnd()
 		
-	def draw(self, boids, big_boids):
+	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False):
 		#
 		# 3D view
 		#
@@ -228,7 +342,7 @@ class GLVisualisation3D(object):
 		self.setup_camera(0.0, 0.0, 0.0, self.camAzimuth, self.camRotZ, self.camDistance)
 
 		self.draw_grid()
-		self.draw_boids(boids, big_boids, self.show_velocity_vectors)   
+		self.draw_boids(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, show_shadow_boids)   
 
 		#
 		# Top view (X up, Z right, looking in negative Y direction)
