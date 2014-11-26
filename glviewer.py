@@ -22,6 +22,7 @@ class GLPyGame3D(object):
 		self.animate = True
 		self.show_shadow_boids = False
 		self.old_center = np.array([0.,0.,0.])
+		self.bird_perspective = -1
 	
 	def toggle_animate(self):
 		self.animate = not self.animate
@@ -33,7 +34,7 @@ class GLPyGame3D(object):
 		self.show_shadow_boids = not self.show_shadow_boids
 	
 	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
-		self.vis.draw(boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids)
+		self.vis.draw(boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids, bird_perspective = self.bird_perspective)
 		self.vis.print_text("Size: %0.1f" % (boids.bounding_box.diagonal), 0)
 		self.vis.print_text("Components: %d" % (len(boids.connected_components)), 1)
 		# self.vis.print_text("Velocity: %0.2f" % (boids.velocity_stddev), 2)
@@ -57,10 +58,14 @@ class GLPyGame3D(object):
 	def print_info(self, text):
 		self.vis.print_info(text)
 	
+	def set_bird_perspective(self, new_perspective):
+		self.bird_perspective = new_perspective
+	
 	def process_mouse_event(self, event):
 		MB_LEFT = 1
 		MB_MIDDLE = 2
 		MB_RIGHT = 3
+		ret = None
 
 		if event.type == MOUSEBUTTONDOWN and self.mouse_button_down is None:
 			self.mouse_button_down = event.button
@@ -86,19 +91,19 @@ class GLPyGame3D(object):
 				self.vis.camDistance = self.camDistance + 5.0*(self.mouse_down_y - event.pos[1]) / self.vis.screen_height
 		
 		elif event.type == MOUSEBUTTONUP and self.mouse_button_down == event.button:
+			if self.mouse_button_down == MB_LEFT and not self.has_motion and self.bird_perspective == -1:
+				ret = self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
+
 			self.mouse_button_down = None
 			
-			if not self.has_motion:
-				return self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
-			
-		return None
+		return ret
 
 class GLVisualisation3D(object):
 	def __init__(self,
 			screen_width = 1920,
 			screen_height = 1080,
 			vertical_fov = 50,
-			bounding_box = BoundingBox([-4, -4, -4], [5, 5, 5]),
+			bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
 			show_velocity_vectors = False,
 			camAzimuth = 40.0,
 			camDistance = 6.0,
@@ -173,7 +178,7 @@ class GLVisualisation3D(object):
 		
 		return (near, far)
 	
-	def setup_camera(self, cor_x, cor_y, cor_z, azimuth, rotz, distance):
+	def setup_camera(self, cor_x, cor_y, cor_z, azimuth, rotz, distance, bird_perspective):
 	
 		# NOTE: Y is up in this model
 
@@ -208,10 +213,24 @@ class GLVisualisation3D(object):
 
 		gluLookAt(cx+cor_x, cy+cor_y, cz+cor_z, cor_x, cor_y, cor_z, 0.0, 1.0, 0.0)
 
-		# Move light along with position
-		#GLfloat pos[] = { cx+cor_x, cy+cor_y, cz+cor_z, 0.0f };
-		#glLightfv(GL_LIGHT0, GL_POSITION, pos);
-		#
+
+	def setup_bird_camera(self, pos, vel):
+	
+		# NOTE: Y is up in this model
+
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		gluPerspective(self.vertical_fov, self.screen_aspect, 0.1, 1000.0)
+
+		glMatrixMode(GL_MODELVIEW)
+		glLoadIdentity()
+
+		# look 10 steps ahead
+		view = pos - 2.5*vel
+		camera = pos - 3*vel
+
+		gluLookAt(camera[0], camera[1], camera[2], view[0], view[1], view[2], 0.0, 1.0, 0.0)
+
 	def print_text(self, text, line_num):
 		# glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
 
@@ -242,7 +261,7 @@ class GLVisualisation3D(object):
 		# if not blending :
 			# glDisable(GL_BLEND)
 
-	def draw_boids(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, show_shadow_boids = None, draw_shadow = False):
+	def draw_boids(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
 		# Velocity vectors
 		if show_velocity_vectors:
 			glColor3f(1, 0, 0)
@@ -269,7 +288,7 @@ class GLVisualisation3D(object):
 		glVertexPointer(3, GL_FLOAT, 0, boids.position)
 		glDrawArrays(GL_POINTS, 0, len(boids.position))
 	
-		if show_shadow_boids:
+		if draw_shadow:
 			glDisableClientState(GL_COLOR_ARRAY)
 			glColor3f(0.2, 0.2, 0.5)
 			glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
@@ -329,7 +348,7 @@ class GLVisualisation3D(object):
 			glVertex3f(self.world.max[0], self.world.min[1], z)
 		glEnd()
 		
-	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False):
+	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1):
 		#
 		# 3D view
 		#
@@ -338,11 +357,14 @@ class GLVisualisation3D(object):
 	
 		glClearColor(0.0, 0.0, 0.0, 0.0)
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)
-
-		self.setup_camera(0.0, 0.0, 0.0, self.camAzimuth, self.camRotZ, self.camDistance)
+		
+		if bird_perspective == -1:
+			self.setup_camera(0.0, 0.0, 0.0, self.camAzimuth, self.camRotZ, self.camDistance, bird_perspective)
+		else:
+			self.setup_bird_camera(boids.position[bird_perspective], boids.velocity[bird_perspective])
 
 		self.draw_grid()
-		self.draw_boids(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, show_shadow_boids)   
+		self.draw_boids(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, draw_shadow = show_shadow_boids)   
 
 		#
 		# Top view (X up, Z right, looking in negative Y direction)
