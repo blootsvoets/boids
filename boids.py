@@ -3,6 +3,7 @@
 import numpy as np
 from numpy.core.umath_tests import inner1d
 from boundingbox import BoundingBox
+import time
 
 class VectorCollection(object):
 	def __init__(self, size, dimensions, min_velocity2, max_velocity2, start_center = None, num_neighbors = 0):
@@ -20,7 +21,7 @@ class VectorCollection(object):
 		self.num_neighbors = num_neighbors
 		
 	def _init_position(self, start_center):
-		self.velocity = np.zeros((self.size, self.dimensions))-0.025
+		self.velocity = np.zeros((self.size, self.dimensions))+[0.0025,-0.001,0.004]
 		offset = np.array(start_center[:self.dimensions]) - 0.5
 		self.position = 2.0*(np.random.random((self.size, self.dimensions))) + offset
 	
@@ -34,6 +35,13 @@ class VectorCollection(object):
 	
 	def apply_min_max_velocity(self):
 		velocity2 = inner1d(self.velocity, self.velocity)
+		# do not go too far up or down
+		velocity_trans = self.velocity.T
+		vert_mask = velocity_trans[1]*velocity_trans[1] > 0.5 * velocity2
+		if any(vert_mask):
+			velocity_trans[1][vert_mask] *= 0.9
+			self.velocity = velocity_trans.T
+		
 		if self.min_velocity2 > 0.0:
 			min_mask = (velocity2 < self.min_velocity2)
 			self.velocity[min_mask] = (np.sqrt(self.min_velocity2 / velocity2[min_mask]) * self.velocity[min_mask].T).T
@@ -236,29 +244,52 @@ class Boids(VectorCollection):
 		self.direction_mask = np.array(self.size*[False])
 		self.in_random_direction = in_random_direction
 		self.enforce_bounds = enforce_bounds
+		self.tmp_matrix = np.zeros((self.size,self.dimensions))
 
 	def calculate_velocity(self):
-		for b in xrange(self.size):
-			self.velocity[b] += self.converge_velocity_neighbors(b)
-
-		for b in xrange(self.size):
-			self.velocity[b] += self.converge_position_neighbors(b)
+		t0 = time.time()
+		self.velocity += self.converge_velocity_neighbors()
+		t1 = time.time()
+		print "converge velocity %.4f" % (t1 - t0)
+		t0 = t1
+		self.velocity += self.converge_position_neighbors()
+		t1 = time.time()
+		print "converge position %.4f" % (t1 - t0)
+		t0 = t1
 
 		for b in xrange(self.size):
 			self.velocity[b] += self.rule2(b)
 		
+		t1 = time.time()
+		print "avoid neighbor %.4f" % (t1 - t0)
+		t0 = t1
+		
 		# self.velocity += self.approach_position(self.center, self.rule1_factor)
 		if self.enforce_bounds:
 			self.velocity += self.ruleBounds()
+			t1 = time.time()
+			print "avoid bounds %.4f" % (t1 - t0)
+			t0 = t1
 		if self.in_random_direction:
 			self.velocity += self.ruleDirection()
+			t1 = time.time()
+			print "random direction %.4f" % (t1 - t0)
+			t0 = t1
 		
 		for e in self.escapes:
 			self.velocity += self.escape_position(e, self.escape_threshold)
+		t1 = time.time()
+		print "avoid escapes %.4f" % (t1 - t0)
+		t0 = t1
 		for bb in self.big_boids.position:
 			self.velocity += self.escape_position(bb, self.escape_threshold)
 		
+		# self.velocity += (np.random.random((self.size, self.dimensions)) - 0.5)*0.00005
+		
 		self.apply_min_max_velocity()
+		t1 = time.time()
+		print "apply min max %.4f" % (t1 - t0)
+		t0 = t1
 
 	def rule2(self, bj):
 		diff_matrix = self.position[bj] - self.position[self.adjacency_list[bj]]
@@ -274,19 +305,23 @@ class Boids(VectorCollection):
 	def converge_velocity(self, factor):
 		return (self.average_velocity - self.velocity)*factor
 
-	def converge_velocity_neighbors(self, bj):
-		neighbor_velocity = np.average(self.velocity[self.adjacency_list[bj]],axis=0)
-		return (neighbor_velocity - self.velocity[bj])*self.rule3_factor
+	def converge_velocity_neighbors(self):
+		for b in xrange(self.size):
+			self.tmp_matrix[b] = np.average(self.velocity[self.adjacency_list[b]],axis=0)
+		
+		return (self.tmp_matrix - self.velocity)*self.rule3_factor
 
-	def converge_position_neighbors(self, bj):
-		neighbor_position = np.average(self.position[self.adjacency_list[bj]],axis=0)
-		return (neighbor_position - self.position[bj])*self.rule1_factor
+	def converge_position_neighbors(self):
+		for b in xrange(self.size):
+			self.tmp_matrix[b] = np.average(self.position[self.adjacency_list[b]],axis=0)
+			
+		return (self.tmp_matrix - self.position)*self.rule1_factor
 
 	def ruleBounds(self):
 		v = np.zeros((self.dimensions, self.size))
 		for i in xrange(self.dimensions):
-			v[i][self.position.T[i] < -1.0] = self.bounds_factor
-			v[i][self.position.T[i] > 2.0] = -self.bounds_factor
+			v[i][self.position.T[i] < -0.5] = self.bounds_factor
+			v[i][self.position.T[i] > 1.5] = -self.bounds_factor
 		
 		return v.T
 	
