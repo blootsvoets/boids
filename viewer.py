@@ -4,31 +4,45 @@ from pygame.locals import *
 from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
 import multiprocessing
+import re
 
-with_shadow_model = True
+with_shadow_model = False
+# Increase to have more frames per velocity change. This slows down and smooths visualisation.
+smoothness = 1
+num_boids = 600
+
 
 def create_boids_3D(nboids=1000, nbig=1):
 	bb = BigBoids(
 		num_big_boids = nbig,
 		dimensions = 3,
 		start_center = [-1.0,-1.0, 0.0],
-		max_velocity2 = 0.001, # avoids ever-increasing velocity that causes it to escape the screen
-		approach_factor = 0.001 # velocity at which it approaches the boids
+		max_velocity2 = 0.0001, # avoids ever-increasing velocity that causes it to escape the screen
+		approach_factor = 0.0001 # velocity at which it approaches the boids
 	)
 	b = Boids(
 		num_boids = nboids,
 		big_boids = bb,
 		dimensions = 3,
-		start_center = [-0.5,-0.5,0.5],
-		rule1_factor = 0.0015, # factor for going to the common center
-		rule2_threshold = 0.008, # threshold for birds being close
-		rule2_factor = 0.15, # speed at which close birds should move outside the threshold
-		rule3_factor = 0.08, # factor for going at the same velocity as average
+		start_center = [0.5,0.5,0.5],
+		rule1_factor = 0.00019, # factor for going to the common center
+		rule2_threshold = 0.01, # threshold for birds being close
+		rule2_factor = 0.005, # speed at which close birds should move outside the threshold
+		rule3_factor = 0.008, # factor for going at the same velocity as average
 		escape_threshold = 0.012, # threshold for a big bird being close
-		min_velocity2 = 0.0004, # avoids too much passivity
-		max_velocity2 = 0.001, # avoids ever-increasing velocity that causes boids to escape the screen
-		rule_direction = 0.001, # factor for going to a random direction
-		bounds_factor = 0.0011,
+		min_velocity2 = 0.00002, # avoids too much passivity
+		max_velocity2 = 0.0001, # avoids ever-increasing velocity that causes boids to escape the screen
+		rule_direction = 0.0001, # factor for going to a random direction
+		bounds_factor = 0.00011,
+		# rule1_factor = 0.0019, # factor for going to the common center
+		# rule2_threshold = 0.01, # threshold for birds being close
+		# rule2_factor = 0.15, # speed at which close birds should move outside the threshold
+		# rule3_factor = 0.08, # factor for going at the same velocity as average
+		# escape_threshold = 0.012, # threshold for a big bird being close
+		# min_velocity2 = 0.0004, # avoids too much passivity
+		# max_velocity2 = 0.001, # avoids ever-increasing velocity that causes boids to escape the screen
+		# rule_direction = 0.001, # factor for going to a random direction
+		# bounds_factor = 0.0011,
 		num_neighbors = 60,
 		# escape_factor = 0.3,
 		
@@ -43,7 +57,7 @@ def create_boids_3D(nboids=1000, nbig=1):
 def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None):
 	# Number of iterations after which to reset target for boids to move at.
 	# Needs to be run more often in 2D than in 3D.
-	new_target_iter = 15
+	new_target_iter = 25
 
 	# current_center = boids.center
 	# boids.add_escape(current_center)
@@ -53,12 +67,16 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 			while not escape_q.empty():
 				i = 0
 				near, far = escape_q.get()
+				if near is None:
+					break
 				boids.add_escapes_between(near, far)
 			
 		# apply rules that govern velocity
+		t0 = time.time()
 		boids.update_velocity()
 		big_boids.update_velocity()
-	
+		print "computed in %0.3f s" % (time.time() - t0)
+
 		boid_q.put(boids.copy())
 		big_boid_q.put(big_boids.copy())
 
@@ -73,19 +91,25 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 			# boids.remove_escape(current_center)
 			# current_center = boids.center
 			# boids.add_escape(current_center)
-			
+	# clear queue
+	if escape_q is not None:
+		while escape_q.get()[0] is not None:
+			pass
+	
+	boid_q.put(None)
+	big_boid_q.put(None)
 	boid_q.close()
 	big_boid_q.close()
 
 def run_model(boid_q, big_boid_q, is_running, escape_q):
 	# Set up boids model
-	boids, big_boids = create_boids_3D(1000, 0)
+	boids, big_boids = create_boids_3D(num_boids, 0)
 	boid_q.put(boids.copy())
 	big_boid_q.put(big_boids.copy())
 	run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q)
 
 def run_shadow_model(init_boids, init_big_boids, boid_q, big_boid_q, is_running):
-	boids, big_boids = create_boids_3D(1000, 0)
+	boids, big_boids = create_boids_3D(num_boids, 0)
 	boids.position = init_boids.position
 	# big_boids.position = init_big_boids.position
 	# big_boids.approach_factor = 0.0008
@@ -93,7 +117,9 @@ def run_shadow_model(init_boids, init_big_boids, boid_q, big_boid_q, is_running)
 	big_boid_q.put(big_boids.copy())
 	run_boids(boids, big_boids, boid_q, big_boid_q, is_running)
 
-def process_events(glgame, boids, big_boids, shadow_boids, shadow_big_boids, escape_q):
+numbers = re.compile('(keypad )?([0-9])')
+
+def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q):
 	event = glgame.next_event()
 	
 	while event.type != NOEVENT:
@@ -106,11 +132,18 @@ def process_events(glgame, boids, big_boids, shadow_boids, shadow_big_boids, esc
 				is_running.value = False
 			elif event.key is K_a:
 				glgame.toggle_animate()
-			elif event.key is K_s:
+			elif event.key is K_s and with_shadow_model:
 				glgame.toggle_shadow_boids()
+				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 			elif event.key is K_v:
 				glgame.toggle_velocity_vectors()
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
+			else:
+				match = numbers.match(event.unicode)
+				if match:
+					perspective = int(match.group(2))
+					# 0 becomes -1 and unsets the bird perspective
+					glgame.set_bird_perspective(perspective - 1)
 				
 		elif event.type in [MOUSEBUTTONDOWN, MOUSEBUTTONUP, MOUSEMOTION]:
 			escape = glgame.process_mouse_event(event)
@@ -118,8 +151,6 @@ def process_events(glgame, boids, big_boids, shadow_boids, shadow_big_boids, esc
 				escape_q.put(escape)
 			
 		event = glgame.next_event()
-
-	return None
 
 if __name__ == '__main__':
 	# queue size gives bounds for how far the thread may be ahead
@@ -147,17 +178,10 @@ if __name__ == '__main__':
 	else:
 		shadow_boids = shadow_big_boids = None
 
-	t0 = time.time()
-	i = 0
-	num_iter_per_print = 100
-
-	# Increase to have more frames per velocity change. This slows down and smooths visualisation.
-	smoothness = 2
-
 	glgame = GLPyGame3D(1000,700)
 
 	while is_running.value:
-		points = process_events(glgame, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
+		points = process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
 	
 		if glgame.animate and is_running.value:
 			boids = b_q.get()
@@ -168,6 +192,7 @@ if __name__ == '__main__':
 
 			for _ in xrange(smoothness):
 				# move with a fixed velocity
+				t0 = time.time()
 				boids.move(1.0/smoothness)
 				big_boids.move(1.0/smoothness)
 				if with_shadow_model:
@@ -175,22 +200,32 @@ if __name__ == '__main__':
 					shadow_big_boids.move(1.0/smoothness)
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 
-			# draw(boids, big_boids)
-		
-			i += 1
-			if i % num_iter_per_print == 0:
-				t1 = time.time()
-				print "%.1f fps" % (smoothness*num_iter_per_print/(t1-t0))
-				t0 = t1		
+				fps = smoothness/(time.time()-t0)
+				print "%0.3f s; %.1f fps" % (1/fps, fps)
+				
 
-	while not b_q.empty():
+	escape_q.put((None,None))
+	escape_q.close()
+
+	while True:
 		b_q.get()
-		bb_q.get()
+		if bb_q.get() is None:
+			break
+	
+	print "got values"
 
 	if with_shadow_model:
-		while not shadow_b_q.empty():
+		# while not shadow_b_q.empty():
+		while True:
 			shadow_b_q.get()
-			shadow_bb_q.get()
-		shadow_bds.join()
-
+			if shadow_bb_q.get() is None:
+				break
+		print "got shadow values"
+		
 	bds.join()
+	print "joined bds"
+	
+	if with_shadow_model:
+		shadow_bds.join()
+		print "joined shadow bds"
+	
