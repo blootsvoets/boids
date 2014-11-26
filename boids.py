@@ -18,7 +18,6 @@ class VectorCollection(object):
 		self._adjacency_list = None
 		self._connected_components = None
 		self.num_neighbors = num_neighbors
-		print num_neighbors
 		
 	def _init_position(self, start_center):
 		self.velocity = np.zeros((self.size, self.dimensions))-0.025
@@ -29,6 +28,8 @@ class VectorCollection(object):
 		cpy = VectorCollection(self.size, self.dimensions, self.min_velocity2, self.max_velocity2, num_neighbors=self.num_neighbors)
 		cpy.position = self.position.copy()
 		cpy.velocity = self.velocity.copy()
+		cpy._adjacency_list = self._adjacency_list
+		cpy._connected_components = self._connected_components
 		return cpy
 	
 	def apply_min_max_velocity(self):
