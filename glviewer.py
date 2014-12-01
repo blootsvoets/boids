@@ -9,6 +9,9 @@ import numpy as np
 
 class GLPyGame3D(object):
 	def __init__(self, screen_width=1920, screen_height=1080):
+
+		glutInit()
+
 		pygame.display.init()  
 
 		pygame.display.gl_set_attribute(pygame.locals.GL_MULTISAMPLEBUFFERS, 1)
