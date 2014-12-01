@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import sys, time, numpy
 from pygame.locals import *
 from boids import Boids, BigBoids
