@@ -21,9 +21,9 @@ class VectorCollection(object):
 		self.num_neighbors = num_neighbors
 		
 	def _init_position(self, start_center):
-		self.velocity = np.zeros((self.size, self.dimensions))+[0.0025,-0.001,0.004]
+		self.velocity = np.zeros((self.size, self.dimensions))+[0.00025,-0.0001,0.0004]
 		offset = np.array(start_center[:self.dimensions]) - 0.5
-		self.position = 2.0*(np.random.random((self.size, self.dimensions))) + offset
+		self.position = (np.random.random((self.size, self.dimensions))) + offset
 	
 	def copy(self):
 		cpy = VectorCollection(self.size, self.dimensions, self.min_velocity2, self.max_velocity2, num_neighbors=self.num_neighbors)
@@ -39,7 +39,7 @@ class VectorCollection(object):
 		velocity_trans = self.velocity.T
 		vert_mask = velocity_trans[1]*velocity_trans[1] > 0.5 * velocity2
 		if any(vert_mask):
-			velocity_trans[1][vert_mask] *= 0.9
+			velocity_trans[1][vert_mask] *= 0.95
 			self.velocity = velocity_trans.T
 		
 		if self.min_velocity2 > 0.0:
@@ -200,8 +200,8 @@ class VectorCollection(object):
 		return self._connected_components
 
 class BigBoids(VectorCollection):
-	def __init__(self, num_big_boids, dimensions = 3, start_center = [-0.5,-0.5,0.5], max_velocity2 = 0.04, approach_factor=0.05):
-		super(BigBoids, self).__init__(num_big_boids, dimensions, 0.0, max_velocity2, start_center = start_center)
+	def __init__(self, num_big_boids, dimensions = 3, start_center = [-0.5,-0.5,0.5], max_velocity2 = 0.04, approach_factor=0.05, dt=0.1):
+		super(BigBoids, self).__init__(num_big_boids, dimensions, 0.0, max_velocity2*dt, start_center = start_center)
 		self.approach_factor = approach_factor
 	
 	def set_boids(self, boids):
@@ -228,15 +228,15 @@ class Boids(VectorCollection):
 	def __init__(self, num_boids, big_boids, dimensions = 3, start_center = [1.5,1.5,0.5], rule1_factor = 0.01,
 			rule2_threshold = 0.0005, rule2_factor = 1.0, rule3_factor = 0.16, bounds_factor = 0.01, escape_threshold = 0.1, min_velocity2 = 0.0003,
 			max_velocity2 = 0.01, rule_direction = 0.002, in_random_direction = False, enforce_bounds = True, use_global_velocity_average = False,
-			num_neighbors = 10):
-		super(Boids, self).__init__(num_boids, dimensions, min_velocity2, max_velocity2, start_center = start_center, num_neighbors = num_neighbors)
+			num_neighbors = 10, dt = 0.1):
+		super(Boids, self).__init__(num_boids, dimensions, min_velocity2*dt, max_velocity2*dt, start_center = start_center, num_neighbors = num_neighbors)
 		self.big_boids = big_boids
 		
-		self.rule1_factor = rule1_factor
+		self.rule1_factor = rule1_factor*dt
 		self.rule2_threshold = rule2_threshold
-		self.rule2_factor = rule2_factor
-		self.rule3_factor = rule3_factor
-		self.bounds_factor = bounds_factor
+		self.rule2_factor = rule2_factor*dt
+		self.rule3_factor = rule3_factor*dt
+		self.bounds_factor = bounds_factor*dt
 		self.escapes = np.array([])
 		self.escape_threshold = escape_threshold
 		self.rule_direction = rule_direction
@@ -320,8 +320,8 @@ class Boids(VectorCollection):
 	def ruleBounds(self):
 		v = np.zeros((self.dimensions, self.size))
 		for i in xrange(self.dimensions):
-			v[i][self.position.T[i] < -0.5] = self.bounds_factor
-			v[i][self.position.T[i] > 1.5] = -self.bounds_factor
+			v[i][self.position.T[i] < -0.8] = self.bounds_factor
+			v[i][self.position.T[i] > 1.8] = -self.bounds_factor
 		
 		return v.T
 	

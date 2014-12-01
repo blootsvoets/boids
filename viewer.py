@@ -6,34 +6,36 @@ from glviewer import GLPyGame3D
 import multiprocessing
 import re
 
-with_shadow_model = False
+with_shadow_model = True
 # Increase to have more frames per velocity change. This slows down and smooths visualisation.
 smoothness = 1
 num_boids = 600
-
+dt = 0.001
 
 def create_boids_3D(nboids=1000, nbig=1):
 	bb = BigBoids(
 		num_big_boids = nbig,
 		dimensions = 3,
 		start_center = [-1.0,-1.0, 0.0],
-		max_velocity2 = 0.0001, # avoids ever-increasing velocity that causes it to escape the screen
-		approach_factor = 0.0001 # velocity at which it approaches the boids
+		max_velocity2 = 1.0, # avoids ever-increasing velocity that causes it to escape the screen
+		approach_factor = 1.0, # velocity at which it approaches the boids
+		dt = dt
 	)
 	b = Boids(
 		num_boids = nboids,
 		big_boids = bb,
 		dimensions = 3,
 		start_center = [0.5,0.5,0.5],
-		rule1_factor = 0.00019, # factor for going to the common center
+		rule1_factor = 1.9, # factor for going to the common center
 		rule2_threshold = 0.01, # threshold for birds being close
-		rule2_factor = 0.005, # speed at which close birds should move outside the threshold
-		rule3_factor = 0.008, # factor for going at the same velocity as average
-		escape_threshold = 0.012, # threshold for a big bird being close
-		min_velocity2 = 0.00002, # avoids too much passivity
-		max_velocity2 = 0.0001, # avoids ever-increasing velocity that causes boids to escape the screen
-		rule_direction = 0.0001, # factor for going to a random direction
-		bounds_factor = 0.00011,
+		rule2_factor = 5.0, # speed at which close birds should move outside the threshold
+		rule3_factor = 8.0, # factor for going at the same velocity as average
+		escape_threshold = 0.014, # threshold for a big bird being close
+		min_velocity2 = 0.2, # avoids too much passivity
+		max_velocity2 = 1.0, # avoids ever-increasing velocity that causes boids to escape the screen
+		rule_direction = 1.0, # factor for going to a random direction
+		bounds_factor = 1.1,
+		dt = dt,
 		# rule1_factor = 0.0019, # factor for going to the common center
 		# rule2_threshold = 0.01, # threshold for birds being close
 		# rule2_factor = 0.15, # speed at which close birds should move outside the threshold
@@ -57,7 +59,7 @@ def create_boids_3D(nboids=1000, nbig=1):
 def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None):
 	# Number of iterations after which to reset target for boids to move at.
 	# Needs to be run more often in 2D than in 3D.
-	new_target_iter = 25
+	new_target_iter = 45
 
 	# current_center = boids.center
 	# boids.add_escape(current_center)
