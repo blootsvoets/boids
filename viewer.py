@@ -210,16 +210,12 @@ if __name__ == '__main__':
 
 				fps = smoothness/t.elapsed()
 				t.print_time("%.1f fps" % (fps))
-<<<<<<< HEAD
-=======
 				
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating
 			# Mouse events will have been processed by process_events() above
 			glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
-				
->>>>>>> b9b495cddded88af75e5c14718db3e8dd5bc8532
-
+	
 	escape_q.put((None,None))
 
 	while True:
