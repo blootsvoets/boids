@@ -13,6 +13,7 @@ class SimpleTimer:
 	
 	def print_time(self, msg=""):
 		if not self.silent:
-			t1 = time()
-			print "[%.4f s] %s" % (t1 - self.t, msg)
+			t1 = time()			
+			dt = t1 - self.t
+			print "[%.4f s | %7.1f fps] %s" % (dt, 1.0/dt, msg)
 			self.t = t1
