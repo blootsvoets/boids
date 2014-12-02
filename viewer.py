@@ -1,10 +1,11 @@
-#!/usr/bin/env python2
-import sys, time, numpy
+#!/usr/bin/env python
+import sys, numpy
 from pygame.locals import *
 from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
 import multiprocessing
 import re
+from simple_timer import SimpleTimer
 
 with_shadow_model = True
 # Increase to have more frames per velocity change. This slows down and smooths visualisation.
@@ -60,6 +61,8 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 	# Number of iterations after which to reset target for boids to move at.
 	# Needs to be run more often in 2D than in 3D.
 	new_target_iter = 45
+	
+	t = SimpleTimer()
 
 	# current_center = boids.center
 	# boids.add_escape(current_center)
@@ -74,10 +77,10 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 				boids.add_escapes_between(near, far)
 			
 		# apply rules that govern velocity
-		t0 = time.time()
+		t.reset()
 		boids.update_velocity()
 		big_boids.update_velocity()
-		print "computed in %0.3f s" % (time.time() - t0)
+		t.print_time("velocity computed")
 
 		boid_q.put(boids.copy())
 		big_boid_q.put(big_boids.copy())
@@ -89,10 +92,7 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 
 		if i % new_target_iter == 0:
 			boids.clear_escapes()
-			# boids.set_random_direction()
-			# boids.remove_escape(current_center)
-			# current_center = boids.center
-			# boids.add_escape(current_center)
+
 	# clear queue
 	if escape_q is not None:
 		while escape_q.get()[0] is not None:
@@ -182,6 +182,7 @@ if __name__ == '__main__':
 
 	glgame = GLPyGame3D(1000,700)
 
+	t = SimpleTimer()
 	while is_running.value:
 		points = process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
 	
@@ -192,9 +193,10 @@ if __name__ == '__main__':
 				shadow_boids = shadow_b_q.get()
 				shadow_big_boids = shadow_bb_q.get()
 
+			t.reset()
 			for _ in xrange(smoothness):
 				# move with a fixed velocity
-				t0 = time.time()
+
 				boids.move(1.0/smoothness)
 				big_boids.move(1.0/smoothness)
 				if with_shadow_model:
@@ -202,8 +204,8 @@ if __name__ == '__main__':
 					shadow_big_boids.move(1.0/smoothness)
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 
-				fps = smoothness/(time.time()-t0)
-				print "%0.3f s; %.1f fps" % (1/fps, fps)
+				fps = smoothness/t.elapsed()
+				t.print_time("%.1f fps" % (fps))
 				
 
 	escape_q.put((None,None))

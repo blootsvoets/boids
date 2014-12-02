@@ -26,6 +26,8 @@ class GLPyGame3D(object):
 		self.show_shadow_boids = False
 		self.old_center = np.array([0.,0.,0.])
 		self.bird_perspective = -1
+		self.has_event = False
+		self.had_vectors = False
 	
 	def toggle_animate(self):
 		self.animate = not self.animate
@@ -37,23 +39,41 @@ class GLPyGame3D(object):
 		self.show_shadow_boids = not self.show_shadow_boids
 	
 	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
+		num_pos_bins = 50
+		num_vel_bins = 50
 		self.vis.draw(boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids, bird_perspective = self.bird_perspective)
 		self.vis.print_text("Size: %0.1f" % (boids.bounding_box.diagonal), 0)
 		self.vis.print_text("Components: %d" % (len(boids.connected_components)), 1)
+		self.vis.print_text("Pos. entropy: %0.3f" % (boids.position_xyz_entropy(num_pos_bins)), 2)
+		self.vis.print_text("Vel. entropy: %0.3f" % (boids.velocity_xyz_entropy(num_vel_bins)), 3)
+		self.vis.print_text("PosVel. ent.: %0.3f" % (boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)), 4)
+		
 		# self.vis.print_text("Velocity: %0.2f" % (boids.velocity_stddev), 2)
 		# self.vis.print_text("%0.3f; %0.3f; %0.3f" % (boids.c_int(5),boids.c_int(10),boids.c_int(20)), 6)
 		# self.vis.print_text("%0.3f; %0.3f" % (boids.c_int(50),boids.c_int(100)), 7)
 		if shadow_boids is not None:
-			self.vis.print_text("Unmodified", 3)
-			self.vis.print_text("Size: %0.1f" % (shadow_boids.bounding_box.diagonal), 4)
-			self.vis.print_text("Components: %d" % (len(shadow_boids.connected_components)), 5)
+			# self.vis.print_text("Unmodified", 4)
+			self.vis.print_text("Size: %0.1f" % (shadow_boids.bounding_box.diagonal), 5)
+			self.vis.print_text("Components: %d" % (len(shadow_boids.connected_components)), 6)
+			self.vis.print_text("Pos. entropy: %0.3f" % (shadow_boids.position_xyz_entropy(num_pos_bins)), 7)
+			self.vis.print_text("Vel. entropy: %0.3f" % (shadow_boids.velocity_xyz_entropy(num_vel_bins)), 8)
+			self.vis.print_text("PosVel. ent.: %0.3f" % (shadow_boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)), 9)
 			# self.vis.print_text("Orig. distance: %0.1f" % (shadow_boids.position_stddev), 4)
 			# self.vis.print_text("Orig. velocity: %0.1f" % (shadow_boids.velocity_stddev), 5)
 		pygame.display.flip()
 		self.old_center = boids.center
-		
+				#
 		# with open("/Users/joris/Desktop/velocity.csv", "a") as f:
-		# 	f.write("%0.2f,%0.1f,%0.2f,%0.2f,%0.1f,%0.2f\n" % (boids.bounding_box.diagonal,boids.position_stddev,boids.velocity_stddev,shadow_boids.bounding_box.diagonal,shadow_boids.position_stddev,shadow_boids.velocity_stddev))
+		# 	f.write("%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%i\n" % (
+		# 		boids.position_xyz_entropy(num_pos_bins),
+		# 		boids.velocity_xyz_entropy(num_vel_bins),
+		# 		boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins),
+		# 		shadow_boids.position_xyz_entropy(num_pos_bins),
+		# 		shadow_boids.velocity_xyz_entropy(num_vel_bins),
+		# 		shadow_boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins),
+		# 		self.has_event)
+		# 	)
+		self.has_event = False
 	
 	def next_event(self):
 		return pygame.event.poll()
@@ -62,6 +82,13 @@ class GLPyGame3D(object):
 		self.vis.print_info(text)
 	
 	def set_bird_perspective(self, new_perspective):
+		if new_perspective != -1 and self.bird_perspective == -1:
+			self.had_vectors = self.vis.show_velocity_vectors
+			self.vis.show_velocity_vectors = True
+		
+		if new_perspective == -1 and self.bird_perspective != -1:
+			self.vis.show_velocity_vectors = self.had_vectors
+
 		self.bird_perspective = new_perspective
 	
 	def process_mouse_event(self, event):
@@ -96,6 +123,7 @@ class GLPyGame3D(object):
 		elif event.type == MOUSEBUTTONUP and self.mouse_button_down == event.button:
 			if self.mouse_button_down == MB_LEFT and not self.has_motion and self.bird_perspective == -1:
 				ret = self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
+				self.has_event = True
 
 			self.mouse_button_down = None
 			
@@ -177,7 +205,7 @@ class GLVisualisation3D(object):
 		# print viewProjInv
 		# near = np.dot(viewProjInv, np.array([x, y, 0.0, 1.0]))[:3]
 		# far = np.dot(viewProjInv, np.array([x, y, 1.0, 1.0]))[:3]
-		print "Near", near, "; far", far
+		# print "Near", near, "; far", far
 		
 		return (near, far)
 	

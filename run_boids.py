@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import time
+from simple_timer import SimpleTimer
 import signal
 from boids import Boids, BigBoids
 from visualisation import Visualisation2D, Visualisation3D
@@ -92,7 +92,7 @@ def run_boids(dims, boid_q, big_boid_q, is_running):
 	# Increase to have more frames per velocity change. This slows down and smooths visualisation.
 	smoothness = 3
 	
-	t0 = time.time()
+	t = SimpleTimer()
 	i = 0
 
 	# Number of iterations after which to reset target for boids to move at.
@@ -113,9 +113,7 @@ def run_boids(dims, boid_q, big_boid_q, is_running):
 		
 		i += 1
 		if i % new_target_iter == 0:
-			t1 = time.time()
-			print "set new position after %0.3f s" % (t1 - t0)
-			t0 = t1
+			t.print_time("set new position")
 			boids.set_random_direction()
 
 # Quit on SIGINT
