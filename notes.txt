@@ -1,0 +1,8 @@
+BUGS
+
+making event when not showing shadow boids does enable showing of shadow
+boids, but does NOT place a marker in the plot
+
+
+show shadow boids in side/top views?
+make points smaller?
