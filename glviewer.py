@@ -24,6 +24,7 @@ class GLPyGame3D(object):
 		self.old_center = np.array([0.,0.,0.])
 		self.bird_perspective = -1
 		self.has_event = False
+		self.had_vectors = False
 	
 	def toggle_animate(self):
 		self.animate = not self.animate
@@ -78,6 +79,13 @@ class GLPyGame3D(object):
 		self.vis.print_info(text)
 	
 	def set_bird_perspective(self, new_perspective):
+		if new_perspective != -1 and self.bird_perspective == -1:
+			self.had_vectors = self.vis.show_velocity_vectors
+			self.vis.show_velocity_vectors = True
+		
+		if new_perspective == -1 and self.bird_perspective != -1:
+			self.vis.show_velocity_vectors = self.had_vectors
+
 		self.bird_perspective = new_perspective
 	
 	def process_mouse_event(self, event):
@@ -194,7 +202,7 @@ class GLVisualisation3D(object):
 		# print viewProjInv
 		# near = np.dot(viewProjInv, np.array([x, y, 0.0, 1.0]))[:3]
 		# far = np.dot(viewProjInv, np.array([x, y, 1.0, 1.0]))[:3]
-		print "Near", near, "; far", far
+		# print "Near", near, "; far", far
 		
 		return (near, far)
 	
