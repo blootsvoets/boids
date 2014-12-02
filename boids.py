@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.core.umath_tests import inner1d
 from boundingbox import BoundingBox
-import time
+from simple_timer import SimpleTimer
 
 class VectorCollection(object):
 	def __init__(self, size, dimensions, min_velocity2, max_velocity2, start_center = None, num_neighbors = 0):
@@ -12,13 +12,14 @@ class VectorCollection(object):
 		self.max_velocity2 = max_velocity2
 		self._center = None
 		self._bounding_box = None
-		self._average_velocity = np.zeros(dimensions)
+		self._average_velocity = None
 		self.min_velocity2 = min_velocity2
 		if start_center is not None:
 			self._init_position(start_center)
 		self._adjacency_list = None
 		self._connected_components = None
 		self.num_neighbors = num_neighbors
+		self.bounds = [-0.8, 1.8]
 		
 	def _init_position(self, start_center):
 		self.velocity = np.zeros((self.size, self.dimensions))+[0.00025,-0.0001,0.0004]
@@ -131,8 +132,49 @@ class VectorCollection(object):
 	@property
 	def average_velocity(self):
 		if self._average_velocity is None:
-			self._average_velocity = self.velocity.sum(axis=0) / self.size
+			self._average_velocity = np.average(self.velocity,axis=0)
 		return self._average_velocity
+	
+	def distribution_angle(self, matrix, ref):
+		ref2 = np.dot(ref,ref)
+		matrix2 = inner1d(matrix, matrix)
+
+		a_dot_b = np.ravel(np.dot(matrix,ref[:,None])) # flattened array
+		a_dot_b_norm = a_dot_b / np.sqrt(ref2*matrix2)
+		theta = np.arccos(a_dot_b_norm) # range: [0, pi]
+		theta = np.sign(a_dot_b)*theta + np.pi # [-pi, pi] -> [0, 2 pi]
+		return (theta, 2*np.pi)
+		
+	def distribution_distance(self, matrix, ref):
+		dist_vector = np.linalg.norm(matrix - ref,axis=1)
+		max_dist = np.sqrt(len(ref))*4.0 + 0.1 # |[2, 2, 2] - [-2, -2, -2]| = sqrt(3*4^2) = sqrt(3)*4 ~ 6.928
+		return (dist_vector, max_dist)
+	
+	def entropy(self, data, max, num_bins):
+		bins = np.linspace(0.0, max, num=num_bins)
+		freq, _ = np.histogram(data, bins)
+		prob = np.array(freq,dtype=float)/len(data)
+		return -prob.dot(np.nan_to_num(np.log2(prob)))
+	
+	def velocity_xz_entropy(self, num_bins=10):
+		avg = np.array([self.average_velocity[0],self.average_velocity[2]]) # x, z
+		vel = np.array([self.velocity.T[0], self.velocity.T[2]]).T # x, z
+		theta, max = self.distribution_angle(vel, avg)
+		return self.entropy(theta, max, num_bins)
+
+	def velocity_xyz_entropy(self, num_bins=10):
+		theta, max = self.distribution_angle(self.velocity, self.average_velocity)
+		return self.entropy(theta, max, num_bins)
+
+	def position_xyz_entropy(self, num_bins=10):
+		dist, max = self.distribution_distance(self.position, self.center)
+		return self.entropy(dist, max, num_bins)
+	
+	def position_velocity_entropy(self, num_vel_bins=10, num_pos_bins=30):
+		theta, max_angle = self.distribution_angle(self.velocity, self.average_velocity)
+		dist, max_dist = self.distribution_distance(self.position, self.center)
+		dist = np.floor(dist * (num_pos_bins / max_dist)) * max_angle
+		return self.entropy(theta + dist, max_angle*num_pos_bins, num_vel_bins*num_pos_bins)
 	
 	@property
 	def x(self):
@@ -196,13 +238,12 @@ class VectorCollection(object):
 				clusters.append(cluster)
 		
 			self._connected_components = np.array(clusters)
-		# print self._connected_components
 		return self._connected_components
 
 class BigBoids(VectorCollection):
 	def __init__(self, num_big_boids, dimensions = 3, start_center = [-0.5,-0.5,0.5], max_velocity2 = 0.04, approach_factor=0.05, dt=0.1):
 		super(BigBoids, self).__init__(num_big_boids, dimensions, 0.0, max_velocity2*dt, start_center = start_center)
-		self.approach_factor = approach_factor
+		self.approach_factor = dt*approach_factor
 	
 	def set_boids(self, boids):
 		self.boids = boids
@@ -215,7 +256,7 @@ def avoid_neighbors(positions, threshold2, factor, size, dimensions, q):
 	v = np.zeros((size, dimensions))
 	for i in xrange(size):
 		diff_matrix = positions[i] - positions
-		dist2_vector = inner1d(diff_matrix, diff_matrix)#np.sum(diff_matrix*diff_matrix, axis=1)
+		dist2_vector = inner1d(diff_matrix, diff_matrix)
 
 		mask = dist2_vector < threshold2
 		mask[i] = False
@@ -247,49 +288,35 @@ class Boids(VectorCollection):
 		self.tmp_matrix = np.zeros((self.size,self.dimensions))
 
 	def calculate_velocity(self):
-		t0 = time.time()
+		t = SimpleTimer()
 		self.velocity += self.converge_velocity_neighbors()
-		t1 = time.time()
-		print "converge velocity %.4f" % (t1 - t0)
-		t0 = t1
+		t.print_time("converge velocity")
 		self.velocity += self.converge_position_neighbors()
-		t1 = time.time()
-		print "converge position %.4f" % (t1 - t0)
-		t0 = t1
+		t.print_time("converge position")
 
 		for b in xrange(self.size):
 			self.velocity[b] += self.rule2(b)
 		
-		t1 = time.time()
-		print "avoid neighbor %.4f" % (t1 - t0)
-		t0 = t1
+		t.print_time("avoid neighbor")
 		
 		# self.velocity += self.approach_position(self.center, self.rule1_factor)
 		if self.enforce_bounds:
 			self.velocity += self.ruleBounds()
-			t1 = time.time()
-			print "avoid bounds %.4f" % (t1 - t0)
-			t0 = t1
+			t.print_time("avoid bounds")
 		if self.in_random_direction:
 			self.velocity += self.ruleDirection()
-			t1 = time.time()
-			print "random direction %.4f" % (t1 - t0)
-			t0 = t1
+			t.print_time("random direction")
 		
 		for e in self.escapes:
 			self.velocity += self.escape_position(e, self.escape_threshold)
-		t1 = time.time()
-		print "avoid escapes %.4f" % (t1 - t0)
-		t0 = t1
+		t.print_time("avoid escapes")
 		for bb in self.big_boids.position:
 			self.velocity += self.escape_position(bb, self.escape_threshold)
 		
 		# self.velocity += (np.random.random((self.size, self.dimensions)) - 0.5)*0.00005
 		
 		self.apply_min_max_velocity()
-		t1 = time.time()
-		print "apply min max %.4f" % (t1 - t0)
-		t0 = t1
+		t.print_time("apply min max")
 
 	def rule2(self, bj):
 		diff_matrix = self.position[bj] - self.position[self.adjacency_list[bj]]
@@ -320,8 +347,8 @@ class Boids(VectorCollection):
 	def ruleBounds(self):
 		v = np.zeros((self.dimensions, self.size))
 		for i in xrange(self.dimensions):
-			v[i][self.position.T[i] < -0.8] = self.bounds_factor
-			v[i][self.position.T[i] > 1.8] = -self.bounds_factor
+			v[i][self.position.T[i] < self.bounds[0]] = self.bounds_factor
+			v[i][self.position.T[i] > self.bounds[1]] = -self.bounds_factor
 		
 		return v.T
 	
