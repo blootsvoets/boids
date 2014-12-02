@@ -4,6 +4,7 @@ import numpy as np
 from numpy.core.umath_tests import inner1d
 from boundingbox import BoundingBox
 from simple_timer import SimpleTimer
+import multiprocessing
 
 class VectorCollection(object):
 	def __init__(self, size, dimensions, min_velocity2, max_velocity2, start_center = None, num_neighbors = 0):
@@ -154,11 +155,12 @@ class VectorCollection(object):
 		bins = np.linspace(0.0, max, num=num_bins)
 		freq, _ = np.histogram(data, bins)
 		prob = np.array(freq,dtype=float)/len(data)
-		return -prob.dot(np.nan_to_num(np.log2(prob)))
+		prob = prob[prob > 0.0]
+		return -prob.dot(np.log2(prob))
 	
 	def velocity_xz_entropy(self, num_bins=10):
 		avg = np.array([self.average_velocity[0],self.average_velocity[2]]) # x, z
-		vel = np.array([self.velocity.T[0], self.velocity.T[2]]).T # x, z
+		vel = np.array([self.velocity[:,0], self.velocity[:,2]]).T # x, z
 		theta, max = self.distribution_angle(vel, avg)
 		return self.entropy(theta, max, num_bins)
 
@@ -203,7 +205,7 @@ class VectorCollection(object):
 	@property
 	def adjacency_list(self):
 		if self._adjacency_list is None:
-			self._adjacency_list = np.array(self.size*[None])
+			self._adjacency_list = np.empty((self.size,self.num_neighbors),dtype=int)
 		
 			for b in xrange(self.size):
 				self._adjacency_list[b] = self.neighbors(b, self.num_neighbors)
@@ -252,24 +254,25 @@ class BigBoids(VectorCollection):
 		self.velocity += self.approach_position(self.boids.center, self.approach_factor)
 		self.apply_min_max_velocity()
 
-def avoid_neighbors(positions, threshold2, factor, size, dimensions, q):
-	v = np.zeros((size, dimensions))
-	for i in xrange(size):
-		diff_matrix = positions[i] - positions
-		dist2_vector = inner1d(diff_matrix, diff_matrix)
-
-		mask = dist2_vector < threshold2
-		mask[i] = False
-		if mask.any():
-			selected_diffs = (np.sqrt(threshold2 / dist2_vector[mask] - 1)*diff_matrix[mask].T).T
-			v[i] = selected_diffs.sum(axis=0)*factor
-	q.put(v)
+def converge_neighbors(dims, size, factor, value_q, ret_q):
+	tmp_matrix = np.empty((size,dims))
+	while True:		
+		mat, adj = value_q.recv()
+		if mat is None:
+			ret_q.send(None)
+			ret_q.close()
+			return
+		
+		for b in xrange(size):
+			tmp_matrix[b] = np.average(mat[adj[b]],axis=0)
+		
+		ret_q.send((tmp_matrix - mat)*factor)
 
 class Boids(VectorCollection):
 	def __init__(self, num_boids, big_boids, dimensions = 3, start_center = [1.5,1.5,0.5], rule1_factor = 0.01,
 			rule2_threshold = 0.0005, rule2_factor = 1.0, rule3_factor = 0.16, bounds_factor = 0.01, escape_threshold = 0.1, min_velocity2 = 0.0003,
 			max_velocity2 = 0.01, rule_direction = 0.002, in_random_direction = False, enforce_bounds = True, use_global_velocity_average = False,
-			num_neighbors = 10, dt = 0.1):
+			num_neighbors = 10, dt = 0.1, use_process = False):
 		super(Boids, self).__init__(num_boids, dimensions, min_velocity2*dt, max_velocity2*dt, start_center = start_center, num_neighbors = num_neighbors)
 		self.big_boids = big_boids
 		
@@ -286,48 +289,85 @@ class Boids(VectorCollection):
 		self.in_random_direction = in_random_direction
 		self.enforce_bounds = enforce_bounds
 		self.tmp_matrix = np.zeros((self.size,self.dimensions))
+		self.use_process = use_process
+		if self.use_process:
+			(vel_recv_q, self.vel_q) = multiprocessing.Pipe(False)
+			(self.vel_ret_q, vel_send_q) = multiprocessing.Pipe(False)
+			(pos_recv_q, self.pos_q) = multiprocessing.Pipe(False)
+			(self.pos_ret_q, pos_send_q) = multiprocessing.Pipe(False)
+			self.converge_vel = multiprocessing.Process(target=converge_neighbors,args=(self.dimensions,self.size,self.rule3_factor,vel_recv_q,vel_send_q))
+			self.converge_pos = multiprocessing.Process(target=converge_neighbors,args=(self.dimensions,self.size,self.rule1_factor,pos_recv_q,pos_send_q))
+			self.converge_vel.start()
+			self.converge_pos.start()
+
+	def finalize(self):
+		if self.use_process:
+			self.pos_q.send((None,None))
+			self.vel_q.send((None,None))
+			while self.vel_ret_q.recv() is not None:
+				continue
+			while self.pos_ret_q.recv() is not None:
+				continue
+			self.pos_q.close()
+			self.vel_q.close()
+			self.converge_vel.join()
+			self.converge_pos.join()
 
 	def calculate_velocity(self):
 		t = SimpleTimer()
-		self.velocity += self.converge_velocity_neighbors()
-		t.print_time("converge velocity")
-		self.velocity += self.converge_position_neighbors()
-		t.print_time("converge position")
-
-		for b in xrange(self.size):
-			self.velocity[b] += self.rule2(b)
-		
+		tmp_velocity = np.zeros((self.size,self.dimensions))
+		self.adjacency_list
+		t.print_time("computed adjacency list")
+		if self.use_process:
+			self.vel_q.send((self.velocity, self.adjacency_list))
+			self.pos_q.send((self.position, self.adjacency_list))
+			t.print_time("sent message to rule process")
+		else:
+			tmp_velocity += self.converge_velocity_neighbors()
+			t.print_time("converge velocity")
+			tmp_velocity += self.converge_position_neighbors()
+			t.print_time("converge position")
+			
+		tmp_velocity += self.avoid_neighbors()
 		t.print_time("avoid neighbor")
 		
 		# self.velocity += self.approach_position(self.center, self.rule1_factor)
 		if self.enforce_bounds:
-			self.velocity += self.ruleBounds()
+			tmp_velocity += self.ruleBounds()
 			t.print_time("avoid bounds")
 		if self.in_random_direction:
-			self.velocity += self.ruleDirection()
+			tmp_velocity += self.ruleDirection()
 			t.print_time("random direction")
 		
 		for e in self.escapes:
-			self.velocity += self.escape_position(e, self.escape_threshold)
+			tmp_velocity += self.escape_position(e, self.escape_threshold)
 		t.print_time("avoid escapes")
 		for bb in self.big_boids.position:
-			self.velocity += self.escape_position(bb, self.escape_threshold)
+			tmp_velocity += self.escape_position(bb, self.escape_threshold)
 		
 		# self.velocity += (np.random.random((self.size, self.dimensions)) - 0.5)*0.00005
+		if self.use_process:
+			tmp_velocity += self.pos_ret_q.recv()
+			tmp_velocity += self.vel_ret_q.recv()
+			t.print_time("applied process results")
 		
+		self.velocity += tmp_velocity
 		self.apply_min_max_velocity()
 		t.print_time("apply min max")
 
-	def rule2(self, bj):
-		diff_matrix = self.position[bj] - self.position[self.adjacency_list[bj]]
-		dist2_vector = inner1d(diff_matrix, diff_matrix)
+	def avoid_neighbors(self):
+		for b in xrange(self.size):
+			diff_matrix = self.position[b] - self.position[self.adjacency_list[b]]
+			dist2_vector = inner1d(diff_matrix, diff_matrix)
 
-		mask = dist2_vector < self.rule2_threshold
-		if mask.any():
-			selected_diffs = (np.sqrt(self.rule2_threshold / dist2_vector[mask] - 1)*diff_matrix[mask].T).T
-			return self.rule2_factor*selected_diffs.sum(axis=0)
-		else:
-			return 0.0
+			mask = dist2_vector < self.rule2_threshold
+			if mask.any():
+				selected_diffs = (np.sqrt(self.rule2_threshold / dist2_vector[mask] - 1)*diff_matrix[mask].T).T
+				self.tmp_matrix[b] = selected_diffs.sum(axis=0)
+			else:
+				self.tmp_matrix[b].fill(0.0)
+		
+		return self.tmp_matrix * self.rule2_factor
 
 	def converge_velocity(self, factor):
 		return (self.average_velocity - self.velocity)*factor
@@ -345,12 +385,12 @@ class Boids(VectorCollection):
 		return (self.tmp_matrix - self.position)*self.rule1_factor
 
 	def ruleBounds(self):
-		v = np.zeros((self.dimensions, self.size))
+		v = np.zeros((self.size, self.dimensions))
 		for i in xrange(self.dimensions):
-			v[i][self.position.T[i] < self.bounds[0]] = self.bounds_factor
-			v[i][self.position.T[i] > self.bounds[1]] = -self.bounds_factor
+			v[self.position[:,i] < self.bounds[0],i] = self.bounds_factor
+			v[self.position[:,i] > self.bounds[1],i] = -self.bounds_factor
 		
-		return v.T
+		return v
 	
 	def ruleDirection(self):
 		v = np.zeros((self.size, self.dimensions))
@@ -394,4 +434,4 @@ class Boids(VectorCollection):
 		cpy = super(Boids, self).copy()
 		cpy.escapes = self.escapes.copy()
 		return cpy
-	
+
