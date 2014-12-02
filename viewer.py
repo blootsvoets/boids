@@ -134,6 +134,8 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 				is_running.value = False
 			elif event.key is K_a:
 				glgame.toggle_animate()
+			elif event.key is K_x:
+				glgame.toggle_axes()				
 			elif event.key is K_s and with_shadow_model:
 				glgame.toggle_shadow_boids()
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
@@ -155,6 +157,13 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 		event = glgame.next_event()
 
 if __name__ == '__main__':
+	
+	W = 1000
+	H = 700
+	if len(sys.argv) > 1:
+		W = int(sys.argv[1])
+		H = int(sys.argv[2])
+	
 	# queue size gives bounds for how far the thread may be ahead
 	b_q = multiprocessing.Queue(maxsize=2)
 	bb_q = multiprocessing.Queue(maxsize=2)
@@ -180,7 +189,7 @@ if __name__ == '__main__':
 	else:
 		shadow_boids = shadow_big_boids = None
 
-	glgame = GLPyGame3D(1000,700)
+	glgame = GLPyGame3D(W,H)
 
 	t = SimpleTimer()
 	while is_running.value:
