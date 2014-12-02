@@ -202,10 +202,16 @@ if __name__ == '__main__':
 				if with_shadow_model:
 					shadow_boids.move(1.0/smoothness)
 					shadow_big_boids.move(1.0/smoothness)
+					
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 
 				fps = smoothness/t.elapsed()
 				t.print_time("%.1f fps" % (fps))
+				
+		elif not glgame.animate:
+			# Make sure 3D interaction stays possible when not animating
+			# Mouse events will have been processed by process_events() above
+			glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 				
 
 	escape_q.put((None,None))
