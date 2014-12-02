@@ -4,6 +4,7 @@ from pygame.locals import *
 from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
 import multiprocessing
+import multiprocessing.queues
 import re
 from simple_timer import SimpleTimer
 
@@ -13,7 +14,7 @@ smoothness = 1
 num_boids = 600
 dt = 0.001
 
-def create_boids_3D(nboids=1000, nbig=1):
+def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 	bb = BigBoids(
 		num_big_boids = nbig,
 		dimensions = 3,
@@ -51,7 +52,8 @@ def create_boids_3D(nboids=1000, nbig=1):
 		
 		enforce_bounds = True,
 		in_random_direction = False,
-		use_global_velocity_average = False
+		use_global_velocity_average = False,
+		use_process = use_process
 		)
 
 	bb.set_boids(b)
@@ -102,16 +104,17 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 	big_boid_q.put(None)
 	boid_q.close()
 	big_boid_q.close()
+	boids.finalize()
 
 def run_model(boid_q, big_boid_q, is_running, escape_q):
 	# Set up boids model
-	boids, big_boids = create_boids_3D(num_boids, 0)
+	boids, big_boids = create_boids_3D(num_boids, 0, use_process=True)
 	boid_q.put(boids.copy())
 	big_boid_q.put(big_boids.copy())
 	run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q)
 
 def run_shadow_model(init_boids, init_big_boids, boid_q, big_boid_q, is_running):
-	boids, big_boids = create_boids_3D(num_boids, 0)
+	boids, big_boids = create_boids_3D(num_boids, 0, use_process=True)
 	boids.position = init_boids.position
 	# big_boids.position = init_big_boids.position
 	# big_boids.approach_factor = 0.0008
@@ -158,7 +161,7 @@ if __name__ == '__main__':
 	# queue size gives bounds for how far the thread may be ahead
 	b_q = multiprocessing.Queue(maxsize=2)
 	bb_q = multiprocessing.Queue(maxsize=2)
-	escape_q = multiprocessing.Queue()
+	escape_q = multiprocessing.queues.SimpleQueue()
 	
 	is_running = multiprocessing.Value('b', True)
 
@@ -206,10 +209,8 @@ if __name__ == '__main__':
 
 				fps = smoothness/t.elapsed()
 				t.print_time("%.1f fps" % (fps))
-				
 
 	escape_q.put((None,None))
-	escape_q.close()
 
 	while True:
 		b_q.get()
