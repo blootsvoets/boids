@@ -4,17 +4,19 @@ making event when not showing shadow boids does enable showing of shadow
 boids, but does NOT place a marker in the plot
 
 
-show shadow boids in side/top views?
-make points smaller?
-
-
-overrotating the camera results in annoying inversion of the 
-other rotation axis
+stat lines are y-spaced based on screen-space metric, not actual line height
 
 
 TODOs
 
 
-show components in different colors when # > 1?
+color boids by component?
 
-plot # of components
+make configurable (config file/python script) for collab:
+- font size
+- boid point size and color (3D and top/side view)
+- background color
+- plot sizes
+- fullscreen yes/no
+- number of historic values kept
+- top/side view sizes

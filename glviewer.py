@@ -323,13 +323,19 @@ class GLVisualisation3D(object):
 		cameraGLViewport = (GLint * 4)()
 
 		glViewport(0, 0, self.screen_width, self.screen_height)
-		glGetIntegerv( GL_VIEWPORT, cameraGLViewport )
+		try:
+			glGetIntegerv( GL_VIEWPORT, cameraGLViewport )
+		except ValueError:
+			cameraGLViewport = glGetIntegerv(GL_VIEWPORT)
 	
 		# read projection matrix
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
 		gluPerspective(self.vertical_fov, self.screen_aspect, 0.1, 1000.0)
-		glGetDoublev(GL_PROJECTION_MATRIX, cameraGLProjection)
+		try:
+			glGetDoublev(GL_PROJECTION_MATRIX, cameraGLProjection)
+		except ValueError:
+			cameraGLProjection = glGetDoublev(GL_PROJECTION_MATRIX)
 
 		# read view matrix
 		glMatrixMode(GL_MODELVIEW);
@@ -351,7 +357,10 @@ class GLVisualisation3D(object):
 		cz = t * sin(gamma) + cz * cos(gamma)
 		
 		gluLookAt(cx, cy, cz, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)
-		glGetDoublev(GL_MODELVIEW_MATRIX, cameraGLView)
+		try:
+			glGetDoublev(GL_MODELVIEW_MATRIX, cameraGLView)
+		except ValueError:
+			cameraGLView = glGetDoublev(GL_MODELVIEW_MATRIX)
 		
 		winX = float(x)
 		winY = float(self.screen_height - y)
