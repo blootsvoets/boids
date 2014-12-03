@@ -175,12 +175,22 @@ class Settings:
 		self.screen_height = 700
 		self.fullscreen = False
 		
+		# Fraction of screen width
+		self.margin_factor = 0.01
+		# Fraction of screen height (yuck)
+		self.smallview_size_factor = 0.25
+		
 		# Main 3D view
 		self.mainview_boids = BoidsSettings()
 		
 		# Top and side view
 		self.smallviews_boids = BoidsSettings()
 		self.smallviews_boids.point_size = 1
+		 
+		# Plots
+		self.plot_width_factor = 1 / 3.0
+		self.plot_height_factor = 1 / 5.0
+		self.plot_history_length = 500
 
 
 if __name__ == '__main__':

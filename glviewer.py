@@ -10,7 +10,7 @@ import numpy as np
 
 class HistoricValues(object):
 	
-	def __init__(self, max_length=500):
+	def __init__(self, max_length):
 		self.max_length = max_length
 		
 		self.bbox_diagonal = []
@@ -58,7 +58,9 @@ class GLPyGame3D(object):
 		pygame.display.set_mode((screen_width, screen_height), flags)			
 		pygame.display.set_caption('Boids')
 
-		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height, background_color = settings.mainview_boids.background_color)
+		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height, background_color = settings.mainview_boids.background_color,
+			plot_width_factor=settings.plot_width_factor, plot_height_factor=settings.plot_height_factor, plot_history_length=settings.plot_history_length,
+			smallview_size_factor = settings.smallview_size_factor, margin_factor = settings.margin_factor)
 		self.mouse_button_down = None				  # we keep track of only one button at a time
 		self.mouse_down_x = self.mouse_down_y = None
 		self.animate = True
@@ -215,6 +217,8 @@ class Plot:
 		
 	def draw(self, hv_boids, hv_shadow_boids, events, show_shadow_boids):
 		
+		print self.viewport
+		
 		glViewport(*self.viewport)
 		
 		glMatrixMode(GL_PROJECTION)
@@ -288,7 +292,12 @@ class GLVisualisation3D(object):
 			show_velocity_vectors = False,
 			camAzimuth = 40.0,
 			camDistance = 6.0,
-			camRotZ = 45.0):
+			camRotZ = 45.0,
+			plot_width_factor = 1/3.0,
+			plot_height_factor = 1/5.0,
+			plot_history_length = 500,
+			smallview_size_factor = 0.25,
+			margin_factor = 0.01):
 				
 		self.screen_width = screen_width
 		self.screen_height = screen_height
@@ -299,19 +308,21 @@ class GLVisualisation3D(object):
 		self.world = bounding_box
 		self.text_pos_x = 0.05
 		self.text_pos_y = 0.95
+		self.smallview_size_factor = smallview_size_factor
 		
 		self.camDistance = camDistance
 		self.camRotZ = camRotZ
 		self.camAzimuth = camAzimuth
 		
-		self.boids_historic_values = HistoricValues()
-		self.shadow_boids_historic_values = HistoricValues()	
+		self.boids_historic_values = HistoricValues(plot_history_length)
+		self.shadow_boids_historic_values = HistoricValues(plot_history_length)	
 		
-		self.margin = int(0.01 * self.screen_width)
+		self.margin = int(margin_factor * self.screen_width)
 
 		# Set up plots
-		W = self.screen_width / 3
-		H = self.screen_height / 5		
+		# Size in pixels
+		W = int(self.screen_width * plot_width_factor)
+		H = int(self.screen_height * plot_height_factor)
 		# Bbox diagonal
 		vp = (self.margin, self.screen_height - self.margin - H, W, H)
 		self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))		
@@ -637,7 +648,7 @@ class GLVisualisation3D(object):
 		# Top view (X right, Z DOWN, looking in negative Y direction)
 		#
 
-		S = self.screen_height / 4		
+		S = int(self.smallview_size_factor * self.screen_height)
 
 		glViewport(self.screen_width - S - self.margin, self.screen_height - S - self.margin, S, S)
 

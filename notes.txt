@@ -15,6 +15,3 @@ color boids by component?
 
 make configurable (config file/python script) for collab:
 - font size (hmm, we use the fixed GLUT fonts, which do not really have large sizes)
-- plot sizes
-- number of historic values kept
-- top/side view sizes

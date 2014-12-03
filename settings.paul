@@ -12,8 +12,17 @@ v.shadow_color = (0.2, 0.2, 0.5)
 v.background_color = (129/255.0, 206/255.0, 213/255.0)
 
 # Top and side view
+s.smallview_size_factor = 0.3
+s.margin_factor = 0.01
+
 v = s.smallviews_boids
 v.point_size = 1
 v.color = (1, 1, 1)
 v.shadow_color = (0.2, 0.2, 0.5)
+
+# Plots
+s.plot_width_factor = 0.5
+s.plot_height_factor = 0.1
+s.plot_history_length = 1000
+
 
