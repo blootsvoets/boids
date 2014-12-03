@@ -39,23 +39,32 @@ class HistoricValues(object):
 		self.events.append(have_event)
 
 class GLPyGame3D(object):
-	def __init__(self, screen_width=1920, screen_height=1080):	
+	def __init__(self, settings):	
+		
+		self.settings = settings
 
 		pygame.display.init()  
 
 		pygame.display.gl_set_attribute(pygame.locals.GL_MULTISAMPLEBUFFERS, 1)
 		pygame.display.gl_set_attribute(pygame.locals.GL_MULTISAMPLESAMPLES, 4)
 
-		pygame.display.set_mode((screen_width, screen_height),OPENGL|DOUBLEBUF)			
+		screen_width = settings.screen_width
+		screen_height = settings.screen_height
+		
+		flags = OPENGL | DOUBLEBUF
+		if settings.fullscreen:
+			flags |= FULLSCREEN
+		
+		pygame.display.set_mode((screen_width, screen_height), flags)			
 		pygame.display.set_caption('Boids')
 
-		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height)
+		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height, background_color = settings.mainview_boids.background_color)
 		self.mouse_button_down = None				  # we keep track of only one button at a time
 		self.mouse_down_x = self.mouse_down_y = None
 		self.animate = True
 		self.show_axes = False
 		self.show_shadow_boids = False
-		self.old_center = np.array([0.,0.,0.])
+		#self.old_center = np.array([0.,0.,0.])
 		self.bird_perspective = -1
 		self.has_event = False
 		self.had_vectors = False
@@ -120,7 +129,7 @@ class GLPyGame3D(object):
 		# Done!
 		
 		pygame.display.flip()
-		self.old_center = boids.center
+		#self.old_center = boids.center
 		
 		self.has_event = False
 	
@@ -192,7 +201,7 @@ class TextDrawer:
 
 		glRasterPos(self.pos_x, self.pos_y)
 		for ch in text:
-			glutBitmapCharacter( GLUT_BITMAP_9_BY_15 , ctypes.c_int( ord(ch) ) )
+			glutBitmapCharacter( GLUT_BITMAP_TIMES_ROMAN_24 , ctypes.c_int( ord(ch) ) )
 		self.pos_x += self.dx
 		self.pos_y -= self.dy		
 		
@@ -273,6 +282,7 @@ class GLVisualisation3D(object):
 	def __init__(self,
 			screen_width = 1920,
 			screen_height = 1080,
+			background_color = (0, 0, 0, 0),
 			vertical_fov = 50,
 			bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
 			show_velocity_vectors = False,
@@ -282,6 +292,7 @@ class GLVisualisation3D(object):
 				
 		self.screen_width = screen_width
 		self.screen_height = screen_height
+		self.background_color = background_color
 		self.screen_aspect = float(self.screen_width) / self.screen_height
 		self.show_velocity_vectors = show_velocity_vectors
 		self.vertical_fov = vertical_fov
@@ -551,9 +562,11 @@ class GLVisualisation3D(object):
 		# Main view
 		#
 		
-		glViewport(0, 0, self.screen_width, self.screen_height)
-	
-		glClearColor(129/255.0, 206/255.0, 213/255.0, 0)
+		glViewport(0, 0, self.screen_width, self.screen_height)			
+		
+		col = list(self.background_color)
+		col.append(0)
+		glClearColor(*col)
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)			
 		
 		# Boids in 3D
@@ -688,12 +701,7 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]+0.5*s, c[1]+0.5*s)
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
 		glEnd()
-				
-		gluLookAt(
-			self.world.center[0], self.world.center[1], self.world.max[1],
-			self.world.center[0], self.world.center[1], self.world.min[1],
-			0, 1, 0)				
-
+		
 		self.draw_boids(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
 	
 		
