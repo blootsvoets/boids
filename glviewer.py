@@ -7,6 +7,7 @@ from math import cos, sin, radians
 from pygame.locals import *
 import pygame
 import numpy as np
+from PIL import Image
 
 class HistoricValues(object):
 	
@@ -205,7 +206,66 @@ class TextDrawer:
 		for ch in text:
 			glutBitmapCharacter( GLUT_BITMAP_TIMES_ROMAN_24 , ctypes.c_int( ord(ch) ) )
 		self.pos_x += self.dx
-		self.pos_y -= self.dy		
+		self.pos_y -= self.dy	
+
+class TextDrawer2:		
+	
+	def __init__(self, glyph_file, gw, gh):
+		img = Image.open(glyph_file)
+		iw, ih = img.size
+		pixels = img.tostring('raw')
+		
+		self.image_width, self.image_height = img.size
+		
+		self.texid = glGenTextures(1) 
+		glBindTexture(GL_TEXTURE_2D, self.texid) 
+		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, iw, ih, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, pixels)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)		
+		
+		self.glyph_width = gw
+		self.glyph_height = gh
+		self.glyph_width_texspace = 1.0 * gw / self.image_width
+		self.glyph_height_texspace = 1.0 * gh / self.image_height
+		
+	def draw(self, text, x, y):
+		
+		glEnable(GL_TEXTURE_2D)
+		glBindTexture(GL_TEXTURE_2D, self.texid)
+		
+		glDisable(GL_LIGHTING)
+		glEnable(GL_BLEND)
+		
+		glColor3f(1, 1, 1)		
+		glBegin(GL_QUADS)
+		
+		for ch in text:
+			s = ord(ch) * self.glyph_width_texspace
+
+			# Top-left
+			glTexCoord2f(s, 0)
+			glVertex2f(x, y)
+
+			glTexCoord2f(s, self.glyph_height_texspace)
+			glVertex2f(x, y-self.glyph_height)
+
+			glTexCoord2f(s+self.glyph_width_texspace, self.glyph_height_texspace)
+			glVertex2f(x+self.glyph_width, y-self.glyph_height)
+
+			glTexCoord2f(s+self.glyph_width_texspace, 0)
+			glVertex2f(x+self.glyph_width, y)
+
+			x += self.glyph_width
+
+		y -= self.glyph_height	
+			
+		glEnd()
+		
+		glDisable(GL_TEXTURE_2D)
+		glBindTexture(GL_TEXTURE_2D, 0)
+		glDisable(GL_BLEND)
+		
 		
 class Plot:
 	
@@ -215,9 +275,9 @@ class Plot:
 		self.plot_size = plot_size
 		self.linewidth = 2
 		
-	def draw(self, hv_boids, hv_shadow_boids, events, show_shadow_boids):
+		self.td = TextDrawer2('fonts/glyphs-32-normal-19x38.png', 19, 38)
 		
-		print self.viewport
+	def draw(self, hv_boids, hv_shadow_boids, events, show_shadow_boids):
 		
 		glViewport(*self.viewport)
 		
@@ -277,8 +337,9 @@ class Plot:
 		glDisable(GL_DEPTH_TEST)
 		glColor3f(0, 0, 0)
 		
-		td = TextDrawer(5, 0.9*self.plot_size[1])
-		td.draw(self.caption)
+		#td = TextDrawer(5, 0.9*self.plot_size[1])
+		#td.draw(self.caption)
+		self.td.draw(self.caption, 5, 0.9*self.plot_size[1])
 			
 		glEnable(GL_DEPTH_TEST)
 		
