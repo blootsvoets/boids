@@ -6,3 +6,15 @@ boids, but does NOT place a marker in the plot
 
 show shadow boids in side/top views?
 make points smaller?
+
+
+overrotating the camera results in annoying inversion of the 
+other rotation axis
+
+
+TODOs
+
+
+show components in different colors when # > 1?
+
+plot # of components

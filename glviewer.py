@@ -317,7 +317,7 @@ class GLVisualisation3D(object):
 
 		gluLookAt(camera[0], camera[1], camera[2], view[0], view[1], view[2], 0.0, 1.0, 0.0)
 		
-	def draw_boids(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
+	def draw_boids(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False, point_size=3):
 		# Velocity vectors
 		if show_velocity_vectors:
 			glColor3f(1, 0, 0)
@@ -331,7 +331,7 @@ class GLVisualisation3D(object):
 	
 		# Boids themselves
 	
-		glPointSize(3)
+		glPointSize(point_size)
 		if shadow_boids is None:
 			glColor3f(1, 1, 1)
 		else:
@@ -366,14 +366,15 @@ class GLVisualisation3D(object):
 
 		# Big boids 
 	
-		glPointSize(10)
+		glPointSize(3*point_size)
 		glColor3f(0, 1, 0)
 	
 		glVertexPointer(3, GL_FLOAT, 0, big_boids.position)
 		glDrawArrays(GL_POINTS, 0, len(big_boids.position))
 	
 	# Draw a grid over X and Z
-	def draw_grid(self):
+	def draw_grid(self, linewidth=3):
+		
 		# Light gray
 		glColor3f(0.6, 0.6, 0.6)
 		glBegin(GL_QUADS)
@@ -385,7 +386,7 @@ class GLVisualisation3D(object):
 	
 		# Darker gray
 		glColor3f(0.5, 0.5, 0.5)
-		glLineWidth(3)
+		glLineWidth(linewidth)
 
 		N = 8
 		S = self.world.size[0] / (N-1)	
@@ -596,7 +597,7 @@ class GLVisualisation3D(object):
 		c = self.world.center		
 		s = max(self.world.size[0], self.world.size[2])
 		# Make view slightly larger to allow boids to go outside world range and still be visible
-		#s *= 1.1
+		s *= 1.1
 		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[2]+0.5*s, c[2]-0.5*s, self.world.max[1]+10, self.world.min[1]-10) 
 		
 		glMatrixMode(GL_MODELVIEW)			 
@@ -611,19 +612,16 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]+0.5*s, c[2]+0.5*s)
 		glVertex2f(c[0]-0.5*s, c[2]+0.5*s)
 		glEnd()		
-
-		gluLookAt(
-				self.world.center[0], self.world.max[1], self.world.center[2],
-				self.world.center[0], self.world.min[1], self.world.center[2],
-				0, 0, 1)
-						
+		
+		glRotatef(-90, 1, 0, 0)
+		
 		glDisable(GL_DEPTH_TEST)
-		self.draw_grid()
+		self.draw_grid(2)
 		if show_axes:
 			self.draw_axes()		
 		glEnable(GL_DEPTH_TEST)
 		
-		self.draw_boids(boids, big_boids, False)   
+		self.draw_boids(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)   
 
 		#
 		# Side view (Y up, X right, looking in negative Z direction)
@@ -636,7 +634,7 @@ class GLVisualisation3D(object):
 		c = self.world.center		
 		s = max(self.world.size[0], self.world.size[1])
 		# Make view slightly larger to allow boids to go outside world range and still be visible
-		#s *= 1.1
+		s *= 1.1
 		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[1]-0.5*s, c[1]+0.5*s, self.world.min[2]-10, self.world.max[2]+10) 
 
 		glMatrixMode(GL_MODELVIEW)			 
@@ -660,6 +658,6 @@ class GLVisualisation3D(object):
 			self.world.center[0], self.world.center[1], self.world.min[1],
 			0, 1, 0)				
 
-		self.draw_boids(boids, big_boids, False)
+		self.draw_boids(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
 	
 		
