@@ -9,14 +9,9 @@ stat lines are y-spaced based on screen-space metric, not actual line height
 
 TODOs
 
+use TextDrawer in other places
 
 color boids by component?
 
 make configurable (config file/python script) for collab:
-- font size
-- boid point size and color (3D and top/side view)
-- background color
-- plot sizes
-- fullscreen yes/no
-- number of historic values kept
-- top/side view sizes
+- font size (hmm, we use the fixed GLUT fonts, which do not really have large sizes)

@@ -158,15 +158,50 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 				escape_q.put(escape)
 			
 		event = glgame.next_event()
+		
+		
+class BoidsSettings:
+	
+	def __init__(self):
+		self.point_size = 3
+		self.color = (1, 1, 1)
+		self.shadow_color = (0.2, 0.2, 0.5)
+		self.background_color = (0.5, 0.5, 0.5)				
+		
+class Settings:
+	
+	def __init__(self):
+		self.screen_width = 1000
+		self.screen_height = 700
+		self.fullscreen = False
+		
+		# Fraction of screen width
+		self.margin_factor = 0.01
+		# Fraction of screen height (yuck)
+		self.smallview_size_factor = 0.25
+		
+		# Main 3D view
+		self.mainview_boids = BoidsSettings()
+		
+		# Top and side view
+		self.smallviews_boids = BoidsSettings()
+		self.smallviews_boids.point_size = 1
+		 
+		# Plots
+		self.plot_width_factor = 1 / 3.0
+		self.plot_height_factor = 1 / 5.0
+		self.plot_history_length = 500
+
 
 if __name__ == '__main__':
 	
-	W = 1000
-	H = 700
+	# Default settings
+	settings = Settings()
+			
+	# Possibly overridden by user script
 	if len(sys.argv) > 1:
-		W = int(sys.argv[1])
-		H = int(sys.argv[2])
-	
+		execfile(sys.argv[1], {'settings':settings})	
+			
 	# queue size gives bounds for how far the thread may be ahead
 	b_q = multiprocessing.Queue(maxsize=2)
 	bb_q = multiprocessing.Queue(maxsize=2)
@@ -192,7 +227,7 @@ if __name__ == '__main__':
 	else:
 		shadow_boids = shadow_big_boids = None
 
-	glgame = GLPyGame3D(W,H)
+	glgame = GLPyGame3D(settings)
 
 	t = SimpleTimer()
 	while is_running.value:
