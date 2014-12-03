@@ -47,6 +47,7 @@ class GLPyGame3D(object):
 		pygame.display.gl_set_attribute(pygame.locals.GL_MULTISAMPLESAMPLES, 4)
 
 		pygame.display.set_mode((screen_width, screen_height),OPENGL|DOUBLEBUF)			
+		pygame.display.set_caption('Boids')
 
 		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height)
 		self.mouse_button_down = None				  # we keep track of only one button at a time
@@ -455,7 +456,7 @@ class GLVisualisation3D(object):
 		glColor3f(0, 0, 0)
 			
 		self.text_pos_x = 5
-		self.text_pos_y = 0.1
+		self.text_pos_y = 4.7
 		self.print_text(caption)
 		
 		glEnable(GL_DEPTH_TEST)
