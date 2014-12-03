@@ -179,7 +179,96 @@ class GLPyGame3D(object):
 			self.mouse_button_down = None
 			
 		return ret
+		
+class TextDrawer:
+	
+	def __init__(self, pos_x, pos_y, dx=0, dy=0):
+		self.pos_x = pos_x
+		self.pos_y = pos_y
+		self.dx = dx
+		self.dy = dy
+	
+	def draw(self, text):
 
+		glRasterPos(self.pos_x, self.pos_y)
+		for ch in text:
+			glutBitmapCharacter( GLUT_BITMAP_9_BY_15 , ctypes.c_int( ord(ch) ) )
+		self.pos_x += self.dx
+		self.pos_y -= self.dy		
+		
+class Plot:
+	
+	def __init__(self, caption, viewport, plot_size):
+		self.caption = caption
+		self.viewport = viewport
+		self.plot_size = plot_size
+		self.linewidth = 2
+		
+	def draw(self, hv_boids, hv_shadow_boids, events, show_shadow_boids):
+		
+		glViewport(*self.viewport)
+		
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		glOrtho(0.0, self.plot_size[0], 0.0, self.plot_size[1], -1.0, 1.0) 
+
+		glMatrixMode(GL_MODELVIEW)			 
+		glLoadIdentity()		
+		
+		glLineWidth(self.linewidth)		
+		
+		# Axes
+		
+		glColor3f(0, 0, 0)
+		
+		glBegin(GL_LINE_STRIP)
+		
+		glVertex2f(0, self.plot_size[1])
+		glVertex2f(0, 0)
+		glVertex2f(self.plot_size[0], 0)
+		
+		glEnd()
+		
+		# Event markers
+		
+		glColor3f(1, 0, 0)
+		
+		for i, v in enumerate(events):
+			if not v:
+				continue
+			glBegin(GL_LINES)
+			glVertex2f(i, 0)
+			glVertex2f(i, self.plot_size[1])
+			glEnd()
+		
+		# Lines
+		
+		glColor3f(1, 1, 1)
+		
+		glBegin(GL_LINE_STRIP)		
+		for i, v in enumerate(hv_boids):			
+			glVertex2f(i, v)		
+		glEnd()
+		
+		if show_shadow_boids:
+			
+			glColor3f(0, 0, 1)
+		
+			glBegin(GL_LINE_STRIP)			
+			for i, v in enumerate(hv_shadow_boids):			
+				glVertex2f(i, v)			
+			glEnd()
+			
+		# Caption
+			
+		glDisable(GL_DEPTH_TEST)
+		glColor3f(0, 0, 0)
+		
+		td = TextDrawer(5, 0.9*self.plot_size[1])
+		td.draw(self.caption)
+			
+		glEnable(GL_DEPTH_TEST)
+		
 class GLVisualisation3D(object):
 	def __init__(self,
 			screen_width = 1920,
@@ -205,7 +294,22 @@ class GLVisualisation3D(object):
 		self.camAzimuth = camAzimuth
 		
 		self.boids_historic_values = HistoricValues()
-		self.shadow_boids_historic_values = HistoricValues()		
+		self.shadow_boids_historic_values = HistoricValues()	
+		
+		self.margin = int(0.01 * self.screen_width)
+
+		# Set up plots
+		W = self.screen_width / 3
+		H = self.screen_height / 5		
+		# Bbox diagonal
+		vp = (self.margin, self.screen_height - self.margin - H, W, H)
+		self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))		
+		# Position entropy
+		vp = (self.margin, self.screen_height - 2*(self.margin + H), W, H)
+		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0))
+		# Number of components
+		vp = (self.margin, self.screen_height - 2*(self.margin + H) - (self.margin + H/2), W, H/2)
+		self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
 		
 		# Initialize OpenGL
 		glEnable(GL_DEPTH_TEST)				
@@ -406,61 +510,7 @@ class GLVisualisation3D(object):
 			glVertex3f(self.world.min[0], self.world.min[1]+0.001, z)
 			glVertex3f(self.world.max[0], self.world.min[1]+0.001, z)
 		glEnd()
-		
-	def draw_plot(self, caption, hv_boids, hv_shadow_boids, events, show_shadow_boids):
-		
-		glLineWidth(2)		
-		
-		# Axes
-		
-		glColor3f(0, 0, 0)
-		
-		glBegin(GL_LINE_STRIP)
-		
-		glVertex2f(0, 5)	# XXX height
-		glVertex2f(0, 0)
-		glVertex2f(self.boids_historic_values.max_length-1, 0)
-		
-		glEnd()
-		
-		# Event markers
-		
-		glColor3f(1, 0, 0)
-		
-		for i, v in enumerate(events):
-			if not v:
-				continue
-			glBegin(GL_LINES)
-			glVertex2f(i, 0)
-			glVertex2f(i, 5)	# XXX height
-			glEnd()
-		
-		glColor3f(1, 1, 1)
-		
-		glBegin(GL_LINE_STRIP)		
-		for i, v in enumerate(hv_boids):			
-			glVertex2f(i, v)		
-		glEnd()
-		
-		if show_shadow_boids:
 			
-			glColor3f(0, 0, 1)
-		
-			glBegin(GL_LINE_STRIP)			
-			for i, v in enumerate(hv_shadow_boids):			
-				glVertex2f(i, v)			
-			glEnd()
-			
-			
-		glDisable(GL_DEPTH_TEST)
-		glColor3f(0, 0, 0)
-			
-		self.text_pos_x = 5
-		self.text_pos_y = 4.7
-		self.print_text(caption)
-		
-		glEnable(GL_DEPTH_TEST)
-	
 	def print_text(self, text):
 
 		glRasterPos(self.text_pos_x, self.text_pos_y)
@@ -513,10 +563,9 @@ class GLVisualisation3D(object):
 		
 		# Stats
 		
-		S = self.screen_height / 4
-		M = int(0.01 * self.screen_width)
+		S = self.screen_height / 4		
 
-		glViewport(self.screen_width - S - M, self.screen_height - 3*(S + M), S, S)
+		glViewport(self.screen_width - S - self.margin, self.screen_height - 3*(S + self.margin), S, S)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
@@ -558,41 +607,17 @@ class GLVisualisation3D(object):
 		# Plots
 		#
 				
-		W = self.screen_width / 3
-		H = self.screen_height / 5
+		self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
+		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, show_shadow_boids)
+		self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
 		
-		# Bbox diagonal
-		glViewport(M, self.screen_height - M - H, W, H)
-		
-		glMatrixMode(GL_PROJECTION)
-		glLoadIdentity()
-		glOrtho(0.0, self.boids_historic_values.max_length, 0.0, 5.0, -1.0, 1.0) 
-
-		glMatrixMode(GL_MODELVIEW)			 
-		glLoadIdentity()
-		
-		self.draw_plot('Bounding-box diagonal', self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
-		
-		# Position entropy
-		glViewport(M, self.screen_height - 2*(M + H), W, H)
-		
-		glMatrixMode(GL_PROJECTION)
-		glLoadIdentity()
-		glOrtho(0.0, self.boids_historic_values.max_length, 0.0, 5.0, -1.0, 1.0) 
-
-		glMatrixMode(GL_MODELVIEW)			 
-		glLoadIdentity()
-		
-		self.draw_plot('Entropy (position)', self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, show_shadow_boids)
-
 		#
 		# Top view (X right, Z DOWN, looking in negative Y direction)
 		#
 
-		S = self.screen_height / 4
-		M = int(0.01 * self.screen_width)
+		S = self.screen_height / 4		
 
-		glViewport(self.screen_width - S - M, self.screen_height - S - M, S, S)
+		glViewport(self.screen_width - S - self.margin, self.screen_height - S - self.margin, S, S)
 
 		glMatrixMode(GL_PROJECTION)			 
 		glLoadIdentity() 
@@ -629,7 +654,7 @@ class GLVisualisation3D(object):
 		# Side view (Y up, X right, looking in negative Z direction)
 		#
 
-		glViewport(self.screen_width - S - M, self.screen_height - 2*(S + M), S, S)
+		glViewport(self.screen_width - S - self.margin, self.screen_height - 2*(S + self.margin), S, S)
 
 		glMatrixMode(GL_PROJECTION)			 
 		glLoadIdentity()
