@@ -163,6 +163,7 @@ class GLPyGame3D(object):
 				# Rotate
 				self.vis.camRotZ = self.camRotZ + 0.2*(event.pos[0] - self.mouse_down_x)
 				self.vis.camAzimuth = self.camAzimuth + 0.2*(event.pos[1] - self.mouse_down_y)
+				self.vis.camAzimuth = min(self.vis.camAzimuth, 89.99)
 	
 			elif self.mouse_button_down == MB_RIGHT:
 				# Zoom
