@@ -542,14 +542,13 @@ class GLVisualisation3D(object):
 		glVertexPointer(3, GL_FLOAT, 0, boids.position)
 		glDrawArrays(GL_POINTS, 0, len(boids.position))
 	
-		if draw_shadow:
+		if shadow_boids is not None:
 			glDisableClientState(GL_COLOR_ARRAY)
-			glColor3f(0.2, 0.2, 0.5)
-			glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
-			glDrawArrays(GL_POINTS, 0, len(shadow_boids.position))
-	
-		elif shadow_boids is not None:
-			glDisableClientState(GL_COLOR_ARRAY)
+			
+			if draw_shadow:
+				glColor3f(0.2, 0.2, 0.5)
+				glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
+				glDrawArrays(GL_POINTS, 0, len(shadow_boids.position))
 		#glBegin(GL_POINTS)
 		#for p in boids.position:
 		#	glVertex3f(*p)		
