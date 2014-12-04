@@ -181,6 +181,9 @@ class Settings:
 		
 		self.background_color = (0.5, 0.5, 0.5)		
 		
+		self.grid_size = 10
+		self.grid_line_spacing = 1
+		
 		# Fraction of screen width
 		self.margin_factor = 0.01
 		# Fraction of screen height (yuck)

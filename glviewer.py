@@ -595,7 +595,7 @@ class GLVisualisation3D(object):
 		
 		glDisableClientState(GL_VERTEX_ARRAY)
 
-	def draw_boids_as_points(self, point_size, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference):
+	def draw_boids_as_points(self, point_size, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference, bird_perspective):
 		
 		glEnableClientState(GL_VERTEX_ARRAY)
 		glEnableClientState(GL_NORMAL_ARRAY)		
@@ -629,6 +629,15 @@ class GLVisualisation3D(object):
 
 		if show_shadow_velocity_difference:		
 			glDisableClientState(GL_COLOR_ARRAY)
+			
+		if bird_perspective != -1:
+			glDisable(GL_DEPTH_TEST)
+			glColor3f(1, 0, 0)
+			glPointSize(10)
+			glBegin(GL_POINTS)
+			glVertex3f(*boids.position[bird_perspective])		
+			glEnd()
+			glEnable(GL_DEPTH_TEST)
 
 		"""
 		# Big boids
@@ -688,11 +697,16 @@ class GLVisualisation3D(object):
 		# We're scaling below
 		glEnable(GL_RESCALE_NORMAL)	
 		
-		if len(self.historic_boid_positions) >= 2:
+		if len(self.historic_boid_positions) >= 3:
 		
 			direction = self.historic_boid_positions[-1] - self.historic_boid_positions[-2]
+			prev_direction = self.historic_boid_positions[-2] - self.historic_boid_positions[-3]
 			
-			for p, d in zip(boids.position, direction):
+			for i, p in enumerate(boids.position):
+				
+				d = direction[i]
+				pd = prev_direction[i]				
+				
 				glPushMatrix()		
 
 				glTranslatef(*p)					
@@ -725,7 +739,15 @@ class GLVisualisation3D(object):
 				dhorizontal = sqrt(dx*dx + dz*dz)			
 				pitch = atan(dy/dhorizontal)		
 								
-				glRotatef(degrees(pitch), 0, 0, 1)				
+				glRotatef(degrees(pitch), 0, 0, 1)			
+
+				# Roll
+				roll = 0
+				
+				ip = p.dot(pd)
+				roll = 90 * ip * 10
+				
+				glRotatef(roll, 1, 0, 0)
 				
 				# Make the bird fly along the +X axis
 				glRotatef(90, 0, 1, 0)
@@ -756,35 +778,39 @@ class GLVisualisation3D(object):
 		
 	# Draw a grid over X and Z
 	def draw_grid(self, linewidth=3):
-
+		
+		N = int(1.0 * self.settings.grid_size / self.settings.grid_line_spacing)
+		s = N * self.settings.grid_line_spacing
+		min = -0.5 * s
+		max = 0.5*s
+		
 		# Light gray
 		glColor3f(0.6, 0.6, 0.6)
-		glBegin(GL_QUADS)
-		glVertex3f(self.world.min[0], self.world.min[1], self.world.min[2])
-		glVertex3f(self.world.max[0], self.world.min[1], self.world.min[2])
-		glVertex3f(self.world.max[0], self.world.min[1], self.world.max[2])
-		glVertex3f(self.world.min[0], self.world.min[1], self.world.max[2])
+		glBegin(GL_QUADS)		
+		glVertex3f(min, self.world.min[1], min)
+		glVertex3f(max, self.world.min[1], min)
+		glVertex3f(max, self.world.min[1], max)
+		glVertex3f(min, self.world.min[1], max)
 		glEnd()
 
 		# Darker gray
 		glColor3f(0.5, 0.5, 0.5)
-		glLineWidth(linewidth)
-
-		N = 8
-		S = self.world.size[0] / (N-1)
+		glLineWidth(linewidth)	
+		
+		S = s / (N-1)
 		glBegin(GL_LINES)
 		for i in xrange(N):
-			x = self.world.min[0] + i*S
-			glVertex3f(x, self.world.min[1]+0.001, self.world.min[2])
-			glVertex3f(x, self.world.min[1]+0.001, self.world.max[2])
+			x = min + i*S
+			glVertex3f(x, self.world.min[1]+0.001, min)
+			glVertex3f(x, self.world.min[1]+0.001, max)
 		glEnd()
 
-		S = self.world.size[2] / (N-1)
+		S = s / (N-1)
 		glBegin(GL_LINES)
 		for i in xrange(N):
-			z = self.world.min[2] + i*S
-			glVertex3f(self.world.min[0], self.world.min[1]+0.001, z)
-			glVertex3f(self.world.max[0], self.world.min[1]+0.001, z)
+			z = min + i*S
+			glVertex3f(min, self.world.min[1]+0.001, z)
+			glVertex3f(max, self.world.min[1]+0.001, z)
 		glEnd()
 
 	def print_text(self, text):
@@ -845,15 +871,16 @@ class GLVisualisation3D(object):
 			self.draw_axes()
 			
 		point_size = self.settings.mainview_boids.point_size
+		
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)		
 
 		if self.show_boids_as_birds:
 			self.draw_boids_as_birds(boids, big_boids, self.show_velocity_vectors, shadow_boids)
 		else:
-			self.draw_boids_as_points(point_size, boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors, shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids)
-			
-		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
-			
+			self.draw_boids_as_points(point_size, boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors, 
+				shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+						
 		self.draw_escapes(boids)		
 
 		# Stats
@@ -960,11 +987,11 @@ class GLVisualisation3D(object):
 			self.draw_axes()
 		glEnable(GL_DEPTH_TEST)
 		
-		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids)
-		
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)	
-
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)			
+		
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+		
 		# Side view (Y up, X right, looking in negative Z direction)
 
 		glViewport(self.screen_width - S - self.margin, self.screen_height - 2*(S + self.margin), S, S)
@@ -992,10 +1019,10 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]+0.5*s, c[1]+0.5*s)
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
 		glEnd()			
-
-		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids)
 		
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)		
-		
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)				
+
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+				
 
