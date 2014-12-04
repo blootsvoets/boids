@@ -11,6 +11,8 @@ s.smoothness = 1
 #s.num_boids = 100
 #s.dt = 0.0001
 
+s.boid_scale_factor = 0.03
+
 # Main 3D view
 v = s.mainview_boids
 v.point_size = 3

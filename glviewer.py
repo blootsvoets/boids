@@ -69,7 +69,8 @@ class GLPyGame3D(object):
 
 		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height, background_color = settings.mainview_boids.background_color,
 			plot_width_factor=settings.plot_width_factor, plot_height_factor=settings.plot_height_factor, plot_history_length=settings.plot_history_length,
-			smallview_size_factor = settings.smallview_size_factor, margin_factor = settings.margin_factor)
+			smallview_size_factor = settings.smallview_size_factor, margin_factor = settings.margin_factor,
+			boid_scale_factor = settings.boid_scale_factor)
 		self.mouse_button_down = None				  # we keep track of only one button at a time
 		self.mouse_down_x = self.mouse_down_y = None
 		self.animate = True
@@ -93,6 +94,12 @@ class GLPyGame3D(object):
 
 	def toggle_shadow_boids(self):
 		self.show_shadow_boids = not self.show_shadow_boids
+		
+	def show_boids_as_birds(self):
+		self.vis.show_boids_as_birds = True
+		
+	def show_boids_as_points(self):
+		self.vis.show_boids_as_birds = False
 
 	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
 
@@ -405,7 +412,8 @@ class GLVisualisation3D(object):
 			plot_height_factor = 1/5.0,
 			plot_history_length = 500,
 			smallview_size_factor = 0.25,
-			margin_factor = 0.01):
+			margin_factor = 0.01,
+			boid_scale_factor = 0.05):
 
 		self.screen_width = screen_width
 		self.screen_height = screen_height
@@ -428,7 +436,9 @@ class GLVisualisation3D(object):
 		self.historic_boid_positions = []
 		self.historic_shadow_boid_positions = []
 
+		self.show_boids_as_birds = True
 		self.margin = int(margin_factor * self.screen_width)
+		self.boid_scale_factor = boid_scale_factor
 
 		# Set up plots
 		# Size in pixels
@@ -567,8 +577,37 @@ class GLVisualisation3D(object):
 		lookat = pos 
 
 		gluLookAt(eye[0], eye[1], eye[2], lookat[0], lookat[1], lookat[2], 0.0, 1.0, 0.0)
+		
+	def draw_escapes(self, boids):
+		
+		if len(boids.escapes) == 0:
+			return 
+			
+		glPointSize(5)
+		glColor3f(0, 0, 1)
+		
+		glEnableClientState(GL_VERTEX_ARRAY)		
 
-	def draw_boids_as_points(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False, point_size=3):
+		glVertexPointer(3, GL_FLOAT, 0, boids.escapes)
+		glDrawArrays(GL_POINTS, 0, len(boids.escapes))
+		
+		glDisableClientState(GL_VERTEX_ARRAY)
+		
+	def draw_shadow_boids(self, shadow_boids, shadow_big_boids, point_size=3):
+		
+		assert shadow_boids is not None
+				
+		glEnableClientState(GL_VERTEX_ARRAY)
+		
+		glColor3f(0.2, 0.2, 0.5)
+		glPointSize(point_size)
+		
+		glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
+		glDrawArrays(GL_POINTS, 0, len(shadow_boids.position))
+		
+		glDisableClientState(GL_VERTEX_ARRAY)
+
+	def draw_boids_as_points(self, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference, point_size=3):
 		
 		glEnableClientState(GL_VERTEX_ARRAY)
 		glEnableClientState(GL_NORMAL_ARRAY)		
@@ -587,37 +626,23 @@ class GLVisualisation3D(object):
 		# Boids themselves
 
 		glPointSize(point_size)
-		if shadow_boids is None:
-			glColor3f(1, 1, 1)
-		else:
+		if show_shadow_velocity_difference:
+			print shadow_boids
 			glEnableClientState(GL_COLOR_ARRAY)
 			# pos_diff = np.ones(len(boids.position)) - boids.diff_position(shadow_boids)
 			vel_diff = np.ones(len(boids.position)) - 20*boids.diff_velocity(shadow_boids)
 			coloring = np.array([np.ones(len(boids.position)),vel_diff,vel_diff]).T
 			glColorPointer(3, GL_FLOAT, 0, coloring)
+		else:
+			glColor3f(1, 1, 1)
 
 		glVertexPointer(3, GL_FLOAT, 0, boids.position)
 		glDrawArrays(GL_POINTS, 0, len(boids.position))
 
-		if shadow_boids is not None:
+		if show_shadow_velocity_difference:		
 			glDisableClientState(GL_COLOR_ARRAY)
 
-			if draw_shadow:
-				glColor3f(0.2, 0.2, 0.5)
-				glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
-				glDrawArrays(GL_POINTS, 0, len(shadow_boids.position))
-		#glBegin(GL_POINTS)
-		#for p in boids.position:
-		#	glVertex3f(*p)
-		#glEnd()
-
-		if len(boids.escapes) > 0:
-			glPointSize(5)
-			glColor3f(0, 0, 1)
-
-			glVertexPointer(3, GL_FLOAT, 0, boids.escapes)
-			glDrawArrays(GL_POINTS, 0, len(boids.escapes))
-
+		"""
 		# Big boids
 
 		glPointSize(3*point_size)
@@ -625,6 +650,7 @@ class GLVisualisation3D(object):
 
 		glVertexPointer(3, GL_FLOAT, 0, big_boids.position)
 		glDrawArrays(GL_POINTS, 0, len(big_boids.position))
+		"""
 		
 		glDisableClientState(GL_VERTEX_ARRAY)
 		glDisableClientState(GL_NORMAL_ARRAY)		
@@ -652,12 +678,12 @@ class GLVisualisation3D(object):
 		
 		pos = (20, 20, 20, 0.0)
 		glLightfv(GL_LIGHT0, GL_POSITION, pos)		
-		glLightfv(GL_LIGHT0, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))		
-		glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.1, 0.1, 0.1, 1.0))		
+		glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))		
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.85, 0.85, 0.85, 1.0))		
 		glLightfv(GL_LIGHT0, GL_SPECULAR, (0.0, 0.0, 0.0, 1.0))					
 		
 		mat_ambient = (0.3, 0.3, 0.3, 1.0)
-		mat_diffuse = (0.4, 0.4, 0.4, 1.0)		
+		mat_diffuse = (0.7, 0.7, 0.7, 1.0)		
 		mat_specular = (0, 0, 0, 1.0)
 		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient)		
 		glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)		
@@ -668,8 +694,11 @@ class GLVisualisation3D(object):
 		#glMaterialfv(GL_BACK, GL_DIFFUSE, red)					
 				
 		self.boid_model.setup()
-		
+			
 		glPushMatrix()
+		
+		# We're scaling below
+		glEnable(GL_RESCALE_NORMAL)	
 		
 		if len(self.historic_boid_positions) >= 2:
 		
@@ -711,7 +740,7 @@ class GLVisualisation3D(object):
 				
 				# Make the bird fly along the +X axis
 				glRotatef(90, 0, 1, 0)
-				glScalef(0.05, 0.05, 0.05)
+				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
 				
 				self.boid_model.draw()
 				
@@ -722,7 +751,7 @@ class GLVisualisation3D(object):
 			for p in boids.position:
 				glPushMatrix()
 				glTranslatef(*p)
-				glScalef(0.05, 0.05, 0.05)
+				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
 				
 				self.boid_model.draw()
 				
@@ -733,6 +762,7 @@ class GLVisualisation3D(object):
 		glPopMatrix()
 		
 		glDisable(GL_LIGHTING)
+		glDisable(GL_RESCALE_NORMAL)		
 		
 		
 	# Draw a grid over X and Z
@@ -825,8 +855,15 @@ class GLVisualisation3D(object):
 		if show_axes:
 			self.draw_axes()
 
-		self.draw_boids_as_birds(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, draw_shadow = show_shadow_boids)
-		#self.draw_boids_as_points(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, draw_shadow = show_shadow_boids)
+		if self.show_boids_as_birds:
+			self.draw_boids_as_birds(boids, big_boids, self.show_velocity_vectors, shadow_boids)
+		else:
+			self.draw_boids_as_points(boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors, shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids)
+			
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids)
+			
+		self.draw_escapes(boids)		
 
 		# Stats
 
@@ -927,7 +964,10 @@ class GLVisualisation3D(object):
 			self.draw_axes()
 		glEnable(GL_DEPTH_TEST)
 
-		self.draw_boids_as_points(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
+		self.draw_boids_as_points(boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, point_size=1, show_shadow_velocity_difference=show_shadow_boids)
+		
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=1)	
 
 		#
 		# Side view (Y up, X right, looking in negative Z direction)
@@ -959,5 +999,9 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
 		glEnd()
 
-		self.draw_boids_as_points(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
+		self.draw_boids_as_points(boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, point_size=1, show_shadow_velocity_difference=show_shadow_boids)
+		
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=1)		
+		
 

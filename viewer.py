@@ -29,15 +29,15 @@ def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 		big_boids = bb,
 		dimensions = 3,
 		start_center = [0.5,0.5,0.5],
-		rule1_factor = 1.0, # factor for going to the common center
+		rule1_factor = 1.9, # factor for going to the common center
 		rule2_threshold = 0.01, # threshold for birds being close
 		rule2_factor = 5.0, # speed at which close birds should move outside the threshold
-		rule3_factor = 9.0, # factor for going at the same velocity as average
+		rule3_factor = 8.0, # factor for going at the same velocity as average
 		escape_threshold = 0.014, # threshold for a big bird being close
-		min_velocity2 = 0.3, # avoids too much passivity
+		min_velocity2 = 0.2, # avoids too much passivity
 		max_velocity2 = 1.0, # avoids ever-increasing velocity that causes boids to escape the screen
 		rule_direction = 1.0, # factor for going to a random direction
-		bounds_factor = 2.0,
+		bounds_factor = 1.1,
 		dt = dt,
 		# rule1_factor = 0.0019, # factor for going to the common center
 		# rule2_threshold = 0.01, # threshold for birds being close
@@ -48,7 +48,7 @@ def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 		# max_velocity2 = 0.001, # avoids ever-increasing velocity that causes boids to escape the screen
 		# rule_direction = 0.001, # factor for going to a random direction
 		# bounds_factor = 0.0011,
-		num_neighbors = 50,
+		num_neighbors = 60,
 		# escape_factor = 0.3,
 		
 		enforce_bounds = True,
@@ -138,6 +138,10 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 				is_running.value = False
 			elif event.key is K_a:
 				glgame.toggle_animate()
+			elif event.key is K_b:
+				glgame.show_boids_as_birds()
+			elif event.key is K_p:
+				glgame.show_boids_as_points()
 			elif event.key is K_x:
 				glgame.toggle_axes()				
 			elif event.key is K_s and with_shadow_model:
@@ -196,6 +200,7 @@ class Settings:
 		self.num_boids = 600
 		self.dt = 0.001
 		self.smoothness = 1
+		self.boid_scale_factor = 0.05
 
 
 if __name__ == '__main__':

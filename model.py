@@ -45,7 +45,7 @@ class OBJModel:
 		glEnableClientState(GL_VERTEX_ARRAY)
 		glEnableClientState(GL_NORMAL_ARRAY)		
 		glVertexPointer(3, GL_FLOAT, 0, self.vertex_array)
-		glNormalPointer(GL_FLOAT, 0, self.normal_array)		
+		glNormalPointer(GL_FLOAT, 0, self.normal_array)				
 				
 	def draw(self):		
 		glDrawArrays(GL_TRIANGLES, 0, 3*self.num_triangles)
