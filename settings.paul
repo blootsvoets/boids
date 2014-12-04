@@ -4,6 +4,13 @@ s.fullscreen = False
 s.screen_width = 1920
 s.screen_height = 1080
 
+s.num_boids = 600
+s.dt = 0.001
+s.smoothness = 1
+
+#s.num_boids = 100
+#s.dt = 0.0001
+
 # Main 3D view
 v = s.mainview_boids
 v.point_size = 3

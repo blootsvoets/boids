@@ -9,6 +9,7 @@ import re
 from simple_timer import SimpleTimer
 
 with_shadow_model = True
+
 # Increase to have more frames per velocity change. This slows down and smooths visualisation.
 smoothness = 1
 num_boids = 600
@@ -191,6 +192,10 @@ class Settings:
 		self.plot_width_factor = 1 / 3.0
 		self.plot_height_factor = 1 / 5.0
 		self.plot_history_length = 500
+		
+		self.num_boids = 600
+		self.dt = 0.001
+		self.smoothness = 1
 
 
 if __name__ == '__main__':
@@ -201,6 +206,10 @@ if __name__ == '__main__':
 	# Possibly overridden by user script
 	if len(sys.argv) > 1:
 		execfile(sys.argv[1], {'settings':settings})	
+		
+	num_boids = settings.num_boids
+	dt = settings.dt
+	smoothness = settings.smoothness
 			
 	# queue size gives bounds for how far the thread may be ahead
 	b_q = multiprocessing.Queue(maxsize=2)

@@ -8,6 +8,8 @@ from pygame.locals import *
 import pygame
 import numpy as np
 import array
+from model import OBJModel
+from math import atan, degrees, sqrt
 try:
 	# PIL
 	import Image, ImageDraw, ImageFont    
@@ -77,7 +79,7 @@ class GLPyGame3D(object):
 		self.bird_perspective = -1
 		self.has_event = False
 		self.had_vectors = False
-
+		
 		glutInit()
 
 	def toggle_animate(self):
@@ -106,7 +108,7 @@ class GLPyGame3D(object):
 		posvel_entropy = boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)
 
 		if self.animate:
-			self.vis.boids_historic_values.append(bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy, self.has_event)
+			self.vis.boids_historic_values.append(bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy, self.has_event)			
 
 		if shadow_boids is not None:
 
@@ -151,7 +153,7 @@ class GLPyGame3D(object):
 	def set_bird_perspective(self, new_perspective):
 		if new_perspective != -1 and self.bird_perspective == -1:
 			self.had_vectors = self.vis.show_velocity_vectors
-			self.vis.show_velocity_vectors = True
+			#self.vis.show_velocity_vectors = True
 
 		if new_perspective == -1 and self.bird_perspective != -1:
 			self.vis.show_velocity_vectors = self.had_vectors
@@ -384,8 +386,11 @@ class Plot:
 			self.viewport[3])
 
 		glEnable(GL_DEPTH_TEST)
-
+		
 class GLVisualisation3D(object):
+	
+	MAX_HISTORIC_POSITIONS = 3
+	
 	def __init__(self,
 			screen_width = 1920,
 			screen_height = 1080,
@@ -419,6 +424,9 @@ class GLVisualisation3D(object):
 
 		self.boids_historic_values = HistoricValues(plot_history_length)
 		self.shadow_boids_historic_values = HistoricValues(plot_history_length)
+		
+		self.historic_boid_positions = []
+		self.historic_shadow_boid_positions = []
 
 		self.margin = int(margin_factor * self.screen_width)
 
@@ -435,6 +443,8 @@ class GLVisualisation3D(object):
 		# Number of components
 		vp = (self.margin, self.screen_height - 2*(self.margin + H) - (self.margin + H/2), W, H/2)
 		self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
+		
+		self.boid_model = OBJModel('bird.obj')
 
 		# Initialize OpenGL
 		glEnable(GL_DEPTH_TEST)
@@ -456,7 +466,7 @@ class GLVisualisation3D(object):
 		# read projection matrix
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
-		gluPerspective(self.vertical_fov, self.screen_aspect, 0.1, 1000.0)
+		gluPerspective(self.vertical_fov, self.screen_aspect, 0.001, 100.0)
 		try:
 			glGetDoublev(GL_PROJECTION_MATRIX, cameraGLProjection)
 		except ValueError:
@@ -539,25 +549,30 @@ class GLVisualisation3D(object):
 
 		gluLookAt(cx+cor_x, cy+cor_y, cz+cor_z, cor_x, cor_y, cor_z, 0.0, 1.0, 0.0)
 
-
 	def setup_bird_camera(self, pos, vel):
 
 		# NOTE: Y is up in this model
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
-		gluPerspective(self.vertical_fov, self.screen_aspect, 0.1, 1000.0)
+		gluPerspective(self.vertical_fov, self.screen_aspect, 0.001, 100.0)
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
 
-		# look 10 steps ahead
-		view = pos - 2.5*vel
-		camera = pos - 3*vel
+		# Follow bird from behind, slightly above looking a bit downward
+		normvel = vel / np.linalg.norm(vel)		
+		Y = np.array([0,1,0])
+		eye = pos - 0.1*normvel + 0.03*Y
+		lookat = pos 
 
-		gluLookAt(camera[0], camera[1], camera[2], view[0], view[1], view[2], 0.0, 1.0, 0.0)
+		gluLookAt(eye[0], eye[1], eye[2], lookat[0], lookat[1], lookat[2], 0.0, 1.0, 0.0)
 
-	def draw_boids(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False, point_size=3):
+	def draw_boids_as_points(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False, point_size=3):
+		
+		glEnableClientState(GL_VERTEX_ARRAY)
+		glEnableClientState(GL_NORMAL_ARRAY)		
+		
 		# Velocity vectors
 		if show_velocity_vectors:
 			glColor3f(1, 0, 0)
@@ -610,7 +625,116 @@ class GLVisualisation3D(object):
 
 		glVertexPointer(3, GL_FLOAT, 0, big_boids.position)
 		glDrawArrays(GL_POINTS, 0, len(big_boids.position))
+		
+		glDisableClientState(GL_VERTEX_ARRAY)
+		glDisableClientState(GL_NORMAL_ARRAY)		
+		
+		
+	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False, point_size=3):
+		
+		# Velocity vectors
+		if show_velocity_vectors:
+			glColor3f(1, 0, 0)
+			glBegin(GL_LINES)
+			SCALE = 5.0
+			for i, p in enumerate(boids.position):
+				v = boids.velocity[i]
+				glVertex3f(*p)
+				glVertex3f(p[0]+v[0]*SCALE, p[1]+v[1]*SCALE, p[2]+v[2]*SCALE)
+			glEnd()
 
+		# Boids themselves			
+		
+		glEnable(GL_LIGHTING)
+		glEnable(GL_LIGHT0)
+		glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE)
+		glShadeModel(GL_FLAT)
+		
+		pos = (20, 20, 20, 0.0)
+		glLightfv(GL_LIGHT0, GL_POSITION, pos)		
+		glLightfv(GL_LIGHT0, GL_AMBIENT, (0.1, 0.1, 0.1, 1.0))		
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.1, 0.1, 0.1, 1.0))		
+		glLightfv(GL_LIGHT0, GL_SPECULAR, (0.0, 0.0, 0.0, 1.0))					
+		
+		mat_ambient = (0.3, 0.3, 0.3, 1.0)
+		mat_diffuse = (0.4, 0.4, 0.4, 1.0)		
+		mat_specular = (0, 0, 0, 1.0)
+		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient)		
+		glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)		
+		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular)		
+		
+		#red = (1, 0, 0, 1)
+		#glMaterialfv(GL_BACK, GL_AMBIENT, red)		
+		#glMaterialfv(GL_BACK, GL_DIFFUSE, red)					
+				
+		self.boid_model.setup()
+		
+		glPushMatrix()
+		
+		if len(self.historic_boid_positions) >= 2:
+		
+			direction = self.historic_boid_positions[-1] - self.historic_boid_positions[-2]
+			
+			for p, d in zip(boids.position, direction):
+				glPushMatrix()		
+
+				glTranslatef(*p)					
+
+				dx, dy, dz = d																			
+				
+				# Yaw
+				# XXX should have used world Z is up, would have made this stuff easier :)
+				a = degrees(atan(dz/dx))
+				
+				if abs(dx) < 1e-4:
+					if dz > 0:
+						yaw = -90
+					else:						
+						yaw = 90								
+					
+				elif dx > 0:	
+					if dz > 0:
+						yaw = -a									
+					else:
+						yaw = -a																		
+					
+				else:
+					# dx < 0					
+					yaw = 180 - a																											
+					
+				glRotatef(yaw, 0, 1, 0)
+				
+				# Pitch
+				dhorizontal = sqrt(dx*dx + dz*dz)
+				pitch = atan(dy/dhorizontal)				
+				glRotatef(degrees(pitch), 0, 0, 1)				
+				
+				# Make the bird fly along the +X axis
+				glRotatef(90, 0, 1, 0)
+				glScalef(0.05, 0.05, 0.05)
+				
+				self.boid_model.draw()
+				
+				glPopMatrix()			
+		
+		else:
+		
+			for p in boids.position:
+				glPushMatrix()
+				glTranslatef(*p)
+				glScalef(0.05, 0.05, 0.05)
+				
+				self.boid_model.draw()
+				
+				glPopMatrix()
+			
+		self.boid_model.done()
+		
+		glPopMatrix()
+		
+		glDisable(GL_LIGHTING)
+		
+		
 	# Draw a grid over X and Z
 	def draw_grid(self, linewidth=3):
 
@@ -670,6 +794,13 @@ class GLVisualisation3D(object):
 		glEnd()
 
 	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1, show_axes = False):
+		
+		if len(self.historic_boid_positions) == self.MAX_HISTORIC_POSITIONS:
+			self.historic_boid_positions.pop(0)
+			self.historic_shadow_boid_positions.pop(0)
+			
+		self.historic_boid_positions.append(boids.position)			
+		self.historic_shadow_boid_positions.append(shadow_boids.position)			
 
 		#
 		# Main view
@@ -694,7 +825,8 @@ class GLVisualisation3D(object):
 		if show_axes:
 			self.draw_axes()
 
-		self.draw_boids(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, draw_shadow = show_shadow_boids)
+		self.draw_boids_as_birds(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, draw_shadow = show_shadow_boids)
+		#self.draw_boids_as_points(boids, big_boids, self.show_velocity_vectors, shadow_boids, shadow_big_boids, draw_shadow = show_shadow_boids)
 
 		# Stats
 
@@ -795,7 +927,7 @@ class GLVisualisation3D(object):
 			self.draw_axes()
 		glEnable(GL_DEPTH_TEST)
 
-		self.draw_boids(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
+		self.draw_boids_as_points(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
 
 		#
 		# Side view (Y up, X right, looking in negative Z direction)
@@ -827,5 +959,5 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
 		glEnd()
 
-		self.draw_boids(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
+		self.draw_boids_as_points(boids, big_boids, False, shadow_boids, draw_shadow=show_shadow_boids, point_size=1)
 
