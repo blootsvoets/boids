@@ -5,6 +5,7 @@ from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
 import multiprocessing
 import multiprocessing.queues
+import numpy as np
 import re
 from simple_timer import SimpleTimer
 
@@ -208,6 +209,8 @@ class Settings:
 
 
 if __name__ == '__main__':
+	
+	np.random.seed(123456)
 	
 	# Default settings
 	settings = Settings()
