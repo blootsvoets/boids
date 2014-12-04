@@ -8,8 +8,13 @@ from pygame.locals import *
 import pygame
 import numpy as np
 import array
-from PIL import Image
-
+try:
+	# PIL
+	import Image, ImageDraw, ImageFont    
+except ImportError:    
+	# PILLOW
+	from PIL import Image, ImageDraw, ImageFont
+		
 class HistoricValues(object):
 
 	def __init__(self, max_length):
@@ -695,7 +700,7 @@ class GLVisualisation3D(object):
 
 		S = self.screen_height / 4
 
-		glViewport(self.screen_width - S - self.margin, self.screen_height - 3*(S + self.margin), S, S)
+		glViewport(self.screen_width - S - self.margin, self.screen_height - int(3.5*(S + self.margin)), S, S)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
@@ -703,8 +708,20 @@ class GLVisualisation3D(object):
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
-
+		
+		if False:
+			# Outline		
+			glLineWidth(2)
+			glColor3f(1, 1, 1)
+			glBegin(GL_LINE_LOOP)
+			glVertex2f(0, 0)
+			glVertex2f(1, 0)
+			glVertex2f(1, 1)
+			glVertex2f(0, 1)
+			glEnd()
+		
 		glColor3f(0, 0, 0)
+		
 		self.text_pos_x = 0.05
 		self.text_pos_y = 0.95
 		self.text_line_height = 1.0 / 11
