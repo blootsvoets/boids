@@ -20,7 +20,6 @@ class VectorCollection(object):
 		self._adjacency_list = None
 		self._connected_components = None
 		self.num_neighbors = num_neighbors
-		self.bounds = [-0.8, 1.8]
 		
 	def _init_position(self, start_center):
 		self.velocity = np.zeros((self.size, self.dimensions))+[0.00025,-0.0001,0.0004]
@@ -280,6 +279,7 @@ class Boids(VectorCollection):
 		self.rule2_threshold = rule2_threshold
 		self.rule2_factor = rule2_factor*dt
 		self.rule3_factor = rule3_factor*dt
+		self.bounds = BoundingBox(min=[-1.0, -0.5, -1.1], max=[1.9, 1.5, 2.1])
 		self.bounds_factor = bounds_factor*dt
 		self.escapes = np.array([])
 		self.escape_threshold = escape_threshold
@@ -387,8 +387,8 @@ class Boids(VectorCollection):
 	def ruleBounds(self):
 		v = np.zeros((self.size, self.dimensions))
 		for i in xrange(self.dimensions):
-			v[self.position[:,i] < self.bounds[0],i] = self.bounds_factor
-			v[self.position[:,i] > self.bounds[1],i] = -self.bounds_factor
+			v[self.position[:,i] < self.bounds.min[i],i] = self.bounds_factor
+			v[self.position[:,i] > self.bounds.max[i],i] = -self.bounds_factor
 		
 		return v
 	
