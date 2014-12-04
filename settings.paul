@@ -12,13 +12,14 @@ s.smoothness = 1
 #s.dt = 0.0001
 
 s.boid_scale_factor = 0.03
+s.background_color = (129/255.0, 206/255.0, 213/255.0)
 
 # Main 3D view
 v = s.mainview_boids
-v.point_size = 3
+v.point_size = 5
 v.color = (1, 1, 1)
 v.shadow_color = (0.2, 0.2, 0.5)
-v.background_color = (129/255.0, 206/255.0, 213/255.0)
+
 
 # Top and side view
 s.smallview_size_factor = 0.3

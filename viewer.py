@@ -170,8 +170,7 @@ class BoidsSettings:
 	def __init__(self):
 		self.point_size = 3
 		self.color = (1, 1, 1)
-		self.shadow_color = (0.2, 0.2, 0.5)
-		self.background_color = (0.5, 0.5, 0.5)				
+		self.shadow_color = (0.2, 0.2, 0.5)			
 		
 class Settings:
 	
@@ -179,6 +178,8 @@ class Settings:
 		self.screen_width = 1000
 		self.screen_height = 700
 		self.fullscreen = False
+		
+		self.background_color = (0.5, 0.5, 0.5)		
 		
 		# Fraction of screen width
 		self.margin_factor = 0.01

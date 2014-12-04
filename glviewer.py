@@ -67,10 +67,7 @@ class GLPyGame3D(object):
 		pygame.display.set_mode((screen_width, screen_height), flags)
 		pygame.display.set_caption('Boids')
 
-		self.vis = GLVisualisation3D(screen_width = screen_width, screen_height = screen_height, background_color = settings.mainview_boids.background_color,
-			plot_width_factor=settings.plot_width_factor, plot_height_factor=settings.plot_height_factor, plot_history_length=settings.plot_history_length,
-			smallview_size_factor = settings.smallview_size_factor, margin_factor = settings.margin_factor,
-			boid_scale_factor = settings.boid_scale_factor)
+		self.vis = GLVisualisation3D(settings)
 		self.mouse_button_down = None				  # we keep track of only one button at a time
 		self.mouse_down_x = self.mouse_down_y = None
 		self.animate = True
@@ -398,52 +395,43 @@ class GLVisualisation3D(object):
 	
 	MAX_HISTORIC_POSITIONS = 3
 	
-	def __init__(self,
-			screen_width = 1920,
-			screen_height = 1080,
-			background_color = (0, 0, 0, 0),
-			vertical_fov = 50,
-			bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
-			show_velocity_vectors = False,
-			camAzimuth = 40.0,
-			camDistance = 6.0,
-			camRotZ = 45.0,
-			plot_width_factor = 1/3.0,
-			plot_height_factor = 1/5.0,
-			plot_history_length = 500,
-			smallview_size_factor = 0.25,
-			margin_factor = 0.01,
-			boid_scale_factor = 0.05):
-
-		self.screen_width = screen_width
-		self.screen_height = screen_height
-		self.background_color = background_color
-		self.screen_aspect = float(self.screen_width) / self.screen_height
-		self.show_velocity_vectors = show_velocity_vectors
+	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
+			camAzimuth = 40.0, camDistance = 6.0, camRotZ = 45.0):
+				
+		self.settings = settings
+				
 		self.vertical_fov = vertical_fov
 		self.world = bounding_box
+
+		self.screen_width = settings.screen_width
+		self.screen_height = settings.screen_height
+		self.screen_aspect = float(self.screen_width) / self.screen_height
+		
+		self.background_color = settings.background_color		
+		self.show_velocity_vectors = False
+				
 		self.text_pos_x = 0.05
 		self.text_pos_y = 0.95
-		self.smallview_size_factor = smallview_size_factor
+		self.smallview_size_factor = settings.smallview_size_factor
 
 		self.camDistance = camDistance
 		self.camRotZ = camRotZ
 		self.camAzimuth = camAzimuth
 
-		self.boids_historic_values = HistoricValues(plot_history_length)
-		self.shadow_boids_historic_values = HistoricValues(plot_history_length)
+		self.boids_historic_values = HistoricValues(settings.plot_history_length)
+		self.shadow_boids_historic_values = HistoricValues(settings.plot_history_length)
 		
 		self.historic_boid_positions = []
 		self.historic_shadow_boid_positions = []
 
 		self.show_boids_as_birds = True
-		self.margin = int(margin_factor * self.screen_width)
-		self.boid_scale_factor = boid_scale_factor
+		self.margin = int(settings.margin_factor * self.screen_width)
+		self.boid_scale_factor = settings.boid_scale_factor
 
 		# Set up plots
 		# Size in pixels
-		W = int(self.screen_width * plot_width_factor)
-		H = int(self.screen_height * plot_height_factor)
+		W = int(self.screen_width * settings.plot_width_factor)
+		H = int(self.screen_height * settings.plot_height_factor)
 		# Bbox diagonal
 		vp = (self.margin, self.screen_height - self.margin - H, W, H)
 		self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))
@@ -593,7 +581,7 @@ class GLVisualisation3D(object):
 		
 		glDisableClientState(GL_VERTEX_ARRAY)
 		
-	def draw_shadow_boids(self, shadow_boids, shadow_big_boids, point_size=3):
+	def draw_shadow_boids(self, shadow_boids, shadow_big_boids, point_size):
 		
 		assert shadow_boids is not None
 				
@@ -607,7 +595,7 @@ class GLVisualisation3D(object):
 		
 		glDisableClientState(GL_VERTEX_ARRAY)
 
-	def draw_boids_as_points(self, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference, point_size=3):
+	def draw_boids_as_points(self, point_size, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference):
 		
 		glEnableClientState(GL_VERTEX_ARRAY)
 		glEnableClientState(GL_NORMAL_ARRAY)		
@@ -656,7 +644,7 @@ class GLVisualisation3D(object):
 		glDisableClientState(GL_NORMAL_ARRAY)		
 		
 		
-	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False, point_size=3):
+	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
 		
 		# Velocity vectors
 		if show_velocity_vectors:
@@ -734,8 +722,9 @@ class GLVisualisation3D(object):
 				glRotatef(yaw, 0, 1, 0)
 				
 				# Pitch
-				dhorizontal = sqrt(dx*dx + dz*dz)
-				pitch = atan(dy/dhorizontal)				
+				dhorizontal = sqrt(dx*dx + dz*dz)			
+				pitch = atan(dy/dhorizontal)		
+								
 				glRotatef(degrees(pitch), 0, 0, 1)				
 				
 				# Make the bird fly along the +X axis
@@ -854,14 +843,16 @@ class GLVisualisation3D(object):
 
 		if show_axes:
 			self.draw_axes()
+			
+		point_size = self.settings.mainview_boids.point_size
 
 		if self.show_boids_as_birds:
 			self.draw_boids_as_birds(boids, big_boids, self.show_velocity_vectors, shadow_boids)
 		else:
-			self.draw_boids_as_points(boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors, shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids)
+			self.draw_boids_as_points(point_size, boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors, shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids)
 			
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids)
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
 			
 		self.draw_escapes(boids)		
 
@@ -926,10 +917,15 @@ class GLVisualisation3D(object):
 		self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
 		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, show_shadow_boids)
 		self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
+		
+		#
+		# Small views
+		#
+		
+		settings = self.settings.smallviews_boids
+		point_size = settings.point_size		
 
-		#
 		# Top view (X right, Z DOWN, looking in negative Y direction)
-		#
 
 		S = int(self.smallview_size_factor * self.screen_height)
 
@@ -963,15 +959,13 @@ class GLVisualisation3D(object):
 		if show_axes:
 			self.draw_axes()
 		glEnable(GL_DEPTH_TEST)
-
-		self.draw_boids_as_points(boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, point_size=1, show_shadow_velocity_difference=show_shadow_boids)
+		
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids)
 		
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=1)	
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)	
 
-		#
 		# Side view (Y up, X right, looking in negative Z direction)
-		#
 
 		glViewport(self.screen_width - S - self.margin, self.screen_height - 2*(S + self.margin), S, S)
 
@@ -997,11 +991,11 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]+0.5*s, c[1]-0.5*s)
 		glVertex2f(c[0]+0.5*s, c[1]+0.5*s)
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
-		glEnd()
+		glEnd()			
 
-		self.draw_boids_as_points(boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, point_size=1, show_shadow_velocity_difference=show_shadow_boids)
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids)
 		
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=1)		
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)		
 		
 
