@@ -207,6 +207,13 @@ class Settings:
 		self.dt = 0.001
 		self.smoothness = 1
 		self.boid_scale_factor = 0.05
+		
+		# List of file names
+		self.logos = []
+		self.logo_target_height = 100 	# Pixels
+		self.logo_left = 10
+		self.logo_top = 100
+		
 
 
 if __name__ == '__main__':

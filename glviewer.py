@@ -309,7 +309,91 @@ class TextDrawer2:
 		glBindTexture(GL_TEXTURE_2D, 0)
 		glDisable(GL_BLEND)
 
+class StaticImage:
+	
+	def __init__(self, imgfile, scale=None, left=None, top=None):
+		img = Image.open(imgfile)
+		self.width, self.height = img.size
+		self.mode = img.mode
+		self.pixels = img.tostring('raw')
+		del img
+		
+		self.texid = glGenTextures(1)
+		glBindTexture(GL_TEXTURE_2D, self.texid)
 
+		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
+		
+		if self.mode == 'RGB':
+			iformat = GL_RGB8
+			format = GL_RGB
+		elif self.mode == 'RGBA':
+			iformat = GL_RGBA8
+			format = GL_RGBA
+		elif self.mode == 'L':
+			iformat = GL_LUMINANCE
+			format = GL_LUMINANCE
+		else:
+			raise ValueError('Unknown image format %s' % self.mode)
+			
+		#glTexImage2D(GL_TEXTURE_2D, 0, iformat, self.width, self.height, 0, format, GL_UNSIGNED_BYTE, self.pixels)
+		# Not strictly necessary as we don't minimize :)
+		gluBuild2DMipmaps(GL_TEXTURE_2D, iformat, self.width, self.height, format, GL_UNSIGNED_BYTE, self.pixels)		
+		
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)		
+		
+		self.scale = scale
+		self.left = left
+		self.top = top
+		
+	def draw(self, left=None, top=None, scale=None, width=None, height=None):
+
+		if width is None:
+			width = self.width
+		if height is None:
+			height = self.height		
+		if left is None:
+			left = self.left
+		if top is None:
+			top = self.top
+			
+		if scale is None:
+			scale = self.scale
+			
+		width = scale * self.width
+		height = scale * self.height
+		
+		glEnable(GL_TEXTURE_2D)
+		glBindTexture(GL_TEXTURE_2D, self.texid)
+
+		glDisable(GL_LIGHTING)
+		#glDisable(GL_BLEND)
+		#glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+		glColor3f(1, 1, 1)
+		glBegin(GL_QUADS)
+		
+		# Top-left
+		glTexCoord2f(0, 1)
+		glVertex2f(left, top)
+
+		glTexCoord2f(0, 0)
+		glVertex2f(left, top-height)
+
+		glTexCoord2f(1, 0)
+		glVertex2f(left+width, top-height)
+
+		glTexCoord2f(1, 1)
+		glVertex2f(left+width, top)
+		
+		glEnd()
+		
+		glDisable(GL_TEXTURE_2D)
+		glBindTexture(GL_TEXTURE_2D, 0)
+		
+		return left, top, width, height
+	
 class Plot:
 
 	def __init__(self, caption, viewport, plot_size):
@@ -461,7 +545,16 @@ class GLVisualisation3D(object):
 		self.boid_redness = np.zeros(600)	# XXX number of boids
 		
 		self.boid_model = OBJModel('bird.obj')
-
+		
+		self.logos = []
+		
+		for fname in settings.logos:
+			img = StaticImage(fname)
+			self.logos.append(img)
+			
+			scale = 1.0 * settings.logo_target_height / img.height 
+			img.scale = scale
+			
 		# Initialize OpenGL
 		glEnable(GL_DEPTH_TEST)
 		glEnable(GL_POINT_SMOOTH)
@@ -1104,4 +1197,22 @@ class GLVisualisation3D(object):
 
 		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
 				
+		# Logos
+		
+		glViewport(0, 0, self.screen_width, self.screen_height)
+
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		glOrtho(0, self.screen_width-1, self.screen_height-1, 0, -1, 1)
+
+		glMatrixMode(GL_MODELVIEW)
+		glLoadIdentity()		
+		
+		drawleft = self.settings.logo_left
+		drawtop = self.settings.logo_top
+		for logo in self.logos:
+			left, top, width, height = logo.draw(left=drawleft, top=drawtop)
+			drawleft += width + 40
+
+
 
