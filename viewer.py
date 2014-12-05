@@ -110,7 +110,8 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 
 def run_model(boid_q, big_boid_q, is_running, escape_q):
 	# Set up boids model
-	boids, big_boids = create_boids_3D(num_boids, 0, use_process=True)
+	N_BIG_BOIDS = 0
+	boids, big_boids = create_boids_3D(num_boids, N_BIG_BOIDS, use_process=True)
 	boid_q.put(boids.copy())
 	big_boid_q.put(big_boids.copy())
 	run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q)

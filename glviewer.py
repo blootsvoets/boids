@@ -319,8 +319,8 @@ class Plot:
 		self.linewidth = 2
 
 		#self.td = TextDrawer2('fonts/glyphs-14-normal-8x17.png', 8, 17)
-		self.td = TextDrawer2('fonts/glyphs-16-normal-10x19.png', 10, 19)
-		#self.td = TextDrawer2('fonts/glyphs-24-normal-14x29.png', 14, 29)
+		#self.td = TextDrawer2('fonts/glyphs-16-normal-10x19.png', 10, 19)
+		self.td = TextDrawer2('fonts/glyphs-24-normal-14x29.png', 14, 29)
 		#self.td = TextDrawer2('fonts/glyphs-32-normal-19x38.png', 19, 38)
 
 	def draw(self, hv_boids, hv_shadow_boids, events, show_shadow_boids):
@@ -638,26 +638,22 @@ class GLVisualisation3D(object):
 			
 			# pos_diff = np.ones(len(boids.position)) - boids.diff_position(shadow_boids)
 			
-			# Average velocity magnitude of the whole flock
-			velnorm = np.apply_along_axis(np.linalg.norm, 1, boids.velocity)								
-			avgvel = np.average(velnorm)
-			
-			# Compute difference between individual velocity and average flock velocity
-			avgvelvect = np.ones(len(boids.position))*avgvel			
-			vel_diff = avgvelvect - velnorm
-			perc_vel_diff = vel_diff / avgvelvect
-			
-			#avg = np.average(vel_diff)
-			#sd = np.std(vel_diff)
-			#print avg, sd
-			
+			# Vector
+			avg_flock_velocity_vector = 1.0 * sum(boids.velocity) / len(boids.velocity)
 			redness = self.boid_redness
-			for i, value in enumerate(perc_vel_diff):
+			
+			for i, boid_velocity_vector in enumerate(boids.velocity):
+				
+				veldiff = boid_velocity_vector - avg_flock_velocity_vector
+				absveldiff = np.linalg.norm(abs(veldiff))		
+
+				CHANGE = 0.004
+							
 				r = redness[i]
-				if value < 0.15:
-					redness[i] = max(0, r-0.001)
+				if absveldiff < 0.01:
+					redness[i] = max(0, r-CHANGE)
 				else:
-					redness[i] = min(1, r+0.001)
+					redness[i] = min(1, r+CHANGE)
 					
 			ones = np.ones(len(boids.position))
 						
@@ -685,8 +681,10 @@ class GLVisualisation3D(object):
 
 		"""
 		# Big boids
+		
+		print big_boids.position
 
-		glPointSize(3*point_size)
+		glPointSize(10*point_size)
 		glColor3f(0, 1, 0)
 
 		glVertexPointer(3, GL_FLOAT, 0, big_boids.position)
