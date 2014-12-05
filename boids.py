@@ -402,7 +402,7 @@ class Boids(VectorCollection):
 			self.escapes = np.array([pos])
 		else:
 			self.escapes = np.append(self.escapes, [pos], axis=0)
-		print self.escapes
+		#print self.escapes
 	
 	def add_escapes_between(self, near, far, number = 15):
 		# the normalized view vector
@@ -413,7 +413,7 @@ class Boids(VectorCollection):
 		
 		for i in xrange(number):
 			escape = near + vec*(a + i*b/number)
-			print "adding", escape
+			#print "adding", escape
 			self.add_escape(escape)
 		
 	def clear_escapes(self):

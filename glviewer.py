@@ -1,4 +1,4 @@
-import sys
+import sys, time
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
@@ -197,6 +197,12 @@ class GLPyGame3D(object):
 		elif event.type == MOUSEBUTTONUP and self.mouse_button_down == event.button:
 			if self.mouse_button_down == MB_LEFT and not self.has_motion and self.bird_perspective == -1:
 				ret = self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
+				
+				f = open('interactions.txt', 'a')
+				t = time.asctime(time.localtime())
+				f.write('%s %d %d\n' % (t, self.mouse_down_x, self.mouse_down_y))
+				f.close()
+				
 				self.has_event = True
 				self.show_shadow_boids = True
 
@@ -372,11 +378,10 @@ class Plot:
 				glVertex2f(i, v)
 			glEnd()
 
-		# Caption
+		# Text
 
 		glDisable(GL_DEPTH_TEST)
 		glColor3f(0, 0, 0)
-
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
@@ -384,10 +389,18 @@ class Plot:
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
+		
+		# Caption
 
 		self.td.draw(self.caption,
 			self.viewport[2] - self.td.text_width(self.caption),
 			self.viewport[3])
+			
+		# Ticks                 
+	
+		self.td.draw('%.1f' % self.plot_size[1],
+			   int(0.01*self.plot_size[0]), 
+			   self.viewport[3])
 
 		glEnable(GL_DEPTH_TEST)
 		
@@ -433,14 +446,18 @@ class GLVisualisation3D(object):
 		W = int(self.screen_width * settings.plot_width_factor)
 		H = int(self.screen_height * settings.plot_height_factor)
 		# Bbox diagonal
-		vp = (self.margin, self.screen_height - self.margin - H, W, H)
-		self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))
+		#vp = (self.margin, self.screen_height - self.margin - H, W, H)
+		#self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))
 		# Position entropy
-		vp = (self.margin, self.screen_height - 2*(self.margin + H), W, H)
+		vp = (self.margin, self.screen_height - self.margin - H*3, W, H*3)
 		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0))
 		# Number of components
-		vp = (self.margin, self.screen_height - 2*(self.margin + H) - (self.margin + H/2), W, H/2)
-		self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
+		#vp = (self.margin, self.screen_height - 2*(self.margin + H) - (self.margin + H/2), W, H/2)
+		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
+		
+		vp = (self.margin, self.screen_height - 2*self.margin - H*3, W, H)
+		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0))
+		
 		
 		self.boid_model = OBJModel('bird.obj')
 
@@ -598,7 +615,7 @@ class GLVisualisation3D(object):
 	def draw_boids_as_points(self, point_size, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference, bird_perspective):
 		
 		glEnableClientState(GL_VERTEX_ARRAY)
-		glEnableClientState(GL_NORMAL_ARRAY)		
+		#glEnableClientState(GL_NORMAL_ARRAY)		
 		
 		# Velocity vectors
 		if show_velocity_vectors:
@@ -614,21 +631,40 @@ class GLVisualisation3D(object):
 		# Boids themselves
 
 		glPointSize(point_size)
-		if show_shadow_velocity_difference:
-			print shadow_boids
+		if show_shadow_velocity_difference or True:
+			#print shadow_boids
 			glEnableClientState(GL_COLOR_ARRAY)
+			
 			# pos_diff = np.ones(len(boids.position)) - boids.diff_position(shadow_boids)
-			vel_diff = np.ones(len(boids.position)) - 20*boids.diff_velocity(shadow_boids)
-			coloring = np.array([np.ones(len(boids.position)),vel_diff,vel_diff]).T
+			
+			# Average velocity magnitude of the whole flock
+			velnorm = np.apply_along_axis(np.linalg.norm, 1, boids.velocity)								
+			avgvel = np.average(velnorm)
+			
+			# Compute difference between individual velocity and average flock velocity
+			avgvelvect = np.ones(len(boids.position))*avgvel			
+			vel_diff = avgvelvect - velnorm
+			
+			#avg = np.average(vel_diff)
+			#sd = np.std(vel_diff)
+			#print avg, sd
+			
+			low_value_indices = vel_diff < 0.002
+			vel_diff[low_value_indices] = 0
+			
+			vel_diff *= 300
+			
+			coloring = np.array([np.ones(len(boids.position)), 1-vel_diff, 1-vel_diff]).T
+			
 			glColorPointer(3, GL_FLOAT, 0, coloring)
 		else:
+			glDisableClientState(GL_COLOR_ARRAY)
 			glColor3f(1, 1, 1)
 
 		glVertexPointer(3, GL_FLOAT, 0, boids.position)
 		glDrawArrays(GL_POINTS, 0, len(boids.position))
 
-		if show_shadow_velocity_difference:		
-			glDisableClientState(GL_COLOR_ARRAY)
+		glDisableClientState(GL_COLOR_ARRAY)
 			
 		if bird_perspective != -1:
 			glDisable(GL_DEPTH_TEST)
@@ -650,7 +686,7 @@ class GLVisualisation3D(object):
 		"""
 		
 		glDisableClientState(GL_VERTEX_ARRAY)
-		glDisableClientState(GL_NORMAL_ARRAY)		
+		#glDisableClientState(GL_NORMAL_ARRAY)		
 		
 		
 	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
@@ -973,9 +1009,16 @@ class GLVisualisation3D(object):
 		# Plots
 		#
 
-		self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
+		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
 		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, show_shadow_boids)
-		self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
+		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
+		
+		# Draws one line only
+		
+		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
+		print abs_entropy_diff
+		
+		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
 		
 		#
 		# Small views

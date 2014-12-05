@@ -251,6 +251,7 @@ if __name__ == '__main__':
 	glgame = GLPyGame3D(settings)
 
 	t = SimpleTimer()
+	
 	while is_running.value:
 		points = process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
 	

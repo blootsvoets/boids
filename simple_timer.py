@@ -12,7 +12,7 @@ class SimpleTimer:
 		return time() - self.t
 	
 	def print_time(self, msg=""):
-		if not self.silent:
+		if not self.silent and False:
 			t1 = time()			
 			dt = t1 - self.t
 			print "[%.4f s | %7.1f fps] %s" % (dt, 1.0/dt, msg)
