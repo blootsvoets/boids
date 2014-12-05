@@ -393,7 +393,7 @@ class Plot:
 		
 class GLVisualisation3D(object):
 	
-	MAX_HISTORIC_POSITIONS = 3
+	MAX_HISTORIC_POSITIONS = 5
 	
 	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
 			camAzimuth = 40.0, camDistance = 6.0, camRotZ = 45.0):
@@ -697,24 +697,31 @@ class GLVisualisation3D(object):
 		# We're scaling below
 		glEnable(GL_RESCALE_NORMAL)	
 		
-		if len(self.historic_boid_positions) >= 3:
+		if len(self.historic_boid_positions) >= 5:
 		
-			direction = self.historic_boid_positions[-1] - self.historic_boid_positions[-2]
-			prev_direction = self.historic_boid_positions[-2] - self.historic_boid_positions[-3]
-			
+			cur_direction = self.historic_boid_positions[-1] - self.historic_boid_positions[-2]
+						
+			# Direction vectors used for computing roll
+			roll_dir1 = self.historic_boid_positions[-1] - self.historic_boid_positions[-3]
+			roll_dir2 = self.historic_boid_positions[-3] - self.historic_boid_positions[-5]
+			# Normalize vectors
+			# http://stackoverflow.com/a/2850800/1296070
+			n = np.apply_along_axis(np.linalg.norm, 1, roll_dir1)
+			roll_dir1 = roll_dir1 / n.reshape(-1,1)
+			n = np.apply_along_axis(np.linalg.norm, 1, roll_dir2)
+			roll_dir2 = roll_dir2 / n.reshape(-1,1)
+						
 			for i, p in enumerate(boids.position):
-				
-				d = direction[i]
-				pd = prev_direction[i]				
-				
+												
 				glPushMatrix()		
 
 				glTranslatef(*p)					
 
-				dx, dy, dz = d																			
+				dx, dy, dz = cur_direction[i]																	
 				
 				# Yaw
 				# XXX should have used world Z is up, would have made this stuff easier :)
+				
 				a = degrees(atan(dz/dx))
 				
 				if abs(dx) < 1e-4:
@@ -736,32 +743,57 @@ class GLVisualisation3D(object):
 				glRotatef(yaw, 0, 1, 0)
 				
 				# Pitch
+				
 				dhorizontal = sqrt(dx*dx + dz*dz)			
 				pitch = atan(dy/dhorizontal)		
 								
 				glRotatef(degrees(pitch), 0, 0, 1)			
 
-				# Roll
-				roll = 0
+				# Roll		
 				
-				ip = p.dot(pd)
-				roll = 90 * ip * 10
+				dir1 = roll_dir1[i]
+				dir2 = roll_dir2[i]
+				
+				# Use in-product to determine amount of roll
+				ip = dir1.dot(dir2)
+				
+				# Use y-component of cross product to determine direction to roll 
+				cross_y = dir1[0] * dir2[1] - dir1[1] * dir2[0]				
+				
+				factor = 60 * pow(1-ip, 2)				# uses fudge factor :)
+				roll = 90 * factor * np.sign(cross_y)
+				
+				#print ip, np.sign(cross_y), factor, roll
 				
 				glRotatef(roll, 1, 0, 0)
 				
 				# Make the bird fly along the +X axis
 				glRotatef(90, 0, 1, 0)
+				
 				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
 				
 				self.boid_model.draw()
 				
 				glPopMatrix()			
+				
+			if False:
+				# Show historic path (for debugging)
+				glDisable(GL_LIGHTING)
+				glColor3f(1, 0, 0)					
+				h = self.historic_boid_positions
+				n = len(boids.position)
+				for i in xrange(n):
+					glBegin(GL_LINE_STRIP)				
+					for j in [-1, -3, -5]:			
+						glVertex3f(*h[j][i])
+					glEnd()				
 		
 		else:
 		
 			for p in boids.position:
 				glPushMatrix()
 				glTranslatef(*p)
+				glRotatef(90, 0, 1, 0)
 				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
 				
 				self.boid_model.draw()
