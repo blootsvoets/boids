@@ -455,9 +455,10 @@ class GLVisualisation3D(object):
 		#vp = (self.margin, self.screen_height - 2*(self.margin + H) - (self.margin + H/2), W, H/2)
 		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
 		
-		vp = (self.margin, self.screen_height - 2*self.margin - H*3, W, H)
+		vp = (self.margin, self.screen_height - 2*self.margin - H*4, W, H)
 		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0))
 		
+		self.boid_redness = np.zeros(600)	# XXX number of boids
 		
 		self.boid_model = OBJModel('bird.obj')
 
@@ -644,17 +645,24 @@ class GLVisualisation3D(object):
 			# Compute difference between individual velocity and average flock velocity
 			avgvelvect = np.ones(len(boids.position))*avgvel			
 			vel_diff = avgvelvect - velnorm
+			perc_vel_diff = vel_diff / avgvelvect
 			
 			#avg = np.average(vel_diff)
 			#sd = np.std(vel_diff)
 			#print avg, sd
 			
-			low_value_indices = vel_diff < 0.002
-			vel_diff[low_value_indices] = 0
-			
-			vel_diff *= 300
-			
-			coloring = np.array([np.ones(len(boids.position)), 1-vel_diff, 1-vel_diff]).T
+			redness = self.boid_redness
+			for i, value in enumerate(perc_vel_diff):
+				r = redness[i]
+				if value < 0.15:
+					redness[i] = max(0, r-0.001)
+				else:
+					redness[i] = min(1, r+0.001)
+					
+			ones = np.ones(len(boids.position))
+						
+			coloring = np.array([ones, 1-redness, 1-redness]).T
+			#print coloring
 			
 			glColorPointer(3, GL_FLOAT, 0, coloring)
 		else:
@@ -1010,14 +1018,12 @@ class GLVisualisation3D(object):
 		#
 
 		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
-		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, show_shadow_boids)
+		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, True)
 		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
 		
 		# Draws one line only
 		
 		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
-		print abs_entropy_diff
-		
 		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
 		
 		#

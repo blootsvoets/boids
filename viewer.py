@@ -210,6 +210,10 @@ class Settings:
 
 if __name__ == '__main__':
 	
+	f = open('interactions.txt', 'a')
+	f.write('SESSION\n')
+	f.close()
+	
 	np.random.seed(123456)
 	
 	# Default settings
