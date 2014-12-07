@@ -34,6 +34,11 @@ s.rules_left = 0.01
 s.rules_top = 0.45
 s.rules_width = 0.2
 
+s.equation_left = 0.01
+s.equation_top = 0.15
+s.equation_width = 0.2
+
+
 # Main 3D view
 v = s.mainview_boids
 v.point_size = 7

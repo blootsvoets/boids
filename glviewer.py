@@ -615,6 +615,13 @@ class GLVisualisation3D(object):
 		self.rules_image.width = self.rules_width
 		self.rules_image.height = self.rules_width / self.rules_image.aspect
 
+		self.equation_image = StaticImage('./images/entropy.png')
+		self.equation_left = compute_fraction_if_not_absolute(settings.equation_left, self.screen_width)
+		self.equation_top = compute_fraction_if_not_absolute(settings.equation_top, self.screen_height)
+		self.equation_width = compute_fraction_if_not_absolute(settings.equation_width, self.screen_width)
+		self.equation_image.width = self.equation_width
+		self.equation_image.height = self.equation_width / self.equation_image.aspect
+
 		# Initialize OpenGL
 		glEnable(GL_DEPTH_TEST)
 		glEnable(GL_POINT_SMOOTH)
@@ -1280,4 +1287,5 @@ class GLVisualisation3D(object):
 
 		# Images
 		self.rules_image.draw(self.rules_left, self.rules_top)
+		self.equation_image.draw(self.equation_left, self.equation_top)
 

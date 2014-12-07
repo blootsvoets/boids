@@ -230,6 +230,9 @@ class Settings:
 		self.rules_top = 0.01
 		self.rules_width = 0.25
 
+		self.equation_left = 0.01
+		self.equation_top = 0.01
+		self.equation_width = 0.25
 
 if __name__ == '__main__':
 
