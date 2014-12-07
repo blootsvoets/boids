@@ -12,11 +12,17 @@ from model import OBJModel
 from math import atan, degrees, sqrt
 try:
 	# PIL
-	import Image, ImageDraw, ImageFont    
-except ImportError:    
+	import Image, ImageDraw, ImageFont
+except ImportError:
 	# PILLOW
 	from PIL import Image, ImageDraw, ImageFont
-		
+
+def compute_fraction_if_not_absolute(int_or_float, value):
+	if isinstance(int_or_float, float):
+		return int(value * int_or_float)
+	else:
+		return int_or_float
+
 class HistoricValues(object):
 
 	def __init__(self, max_length):
@@ -77,7 +83,7 @@ class GLPyGame3D(object):
 		self.bird_perspective = -1
 		self.has_event = False
 		self.had_vectors = False
-		
+
 		glutInit()
 
 	def toggle_animate(self):
@@ -91,10 +97,10 @@ class GLPyGame3D(object):
 
 	def toggle_shadow_boids(self):
 		self.show_shadow_boids = not self.show_shadow_boids
-		
+
 	def show_boids_as_birds(self):
 		self.vis.show_boids_as_birds = True
-		
+
 	def show_boids_as_points(self):
 		self.vis.show_boids_as_birds = False
 
@@ -112,7 +118,7 @@ class GLPyGame3D(object):
 		posvel_entropy = boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)
 
 		if self.animate:
-			self.vis.boids_historic_values.append(bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy, self.has_event)			
+			self.vis.boids_historic_values.append(bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy, self.has_event)
 
 		if shadow_boids is not None:
 
@@ -197,12 +203,12 @@ class GLPyGame3D(object):
 		elif event.type == MOUSEBUTTONUP and self.mouse_button_down == event.button:
 			if self.mouse_button_down == MB_LEFT and not self.has_motion and self.bird_perspective == -1:
 				ret = self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
-				
+
 				f = open('interactions.txt', 'a')
 				t = time.asctime(time.localtime())
 				f.write('%s %d %d\n' % (t, self.mouse_down_x, self.mouse_down_y))
 				f.close()
-				
+
 				self.has_event = True
 				self.show_shadow_boids = True
 
@@ -310,19 +316,19 @@ class TextDrawer2:
 		glDisable(GL_BLEND)
 
 class StaticImage:
-	
+
 	def __init__(self, imgfile, scale=None, left=None, top=None):
 		img = Image.open(imgfile)
 		self.width, self.height = img.size
 		self.mode = img.mode
 		self.pixels = img.tostring('raw')
 		del img
-		
+
 		self.texid = glGenTextures(1)
 		glBindTexture(GL_TEXTURE_2D, self.texid)
 
 		glPixelStorei(GL_UNPACK_ALIGNMENT,1)
-		
+
 		if self.mode == 'RGB':
 			iformat = GL_RGB8
 			format = GL_RGB
@@ -334,36 +340,36 @@ class StaticImage:
 			format = GL_LUMINANCE
 		else:
 			raise ValueError('Unknown image format %s' % self.mode)
-			
+
 		#glTexImage2D(GL_TEXTURE_2D, 0, iformat, self.width, self.height, 0, format, GL_UNSIGNED_BYTE, self.pixels)
 		# Not strictly necessary as we don't minimize :)
-		gluBuild2DMipmaps(GL_TEXTURE_2D, iformat, self.width, self.height, format, GL_UNSIGNED_BYTE, self.pixels)		
-		
+		gluBuild2DMipmaps(GL_TEXTURE_2D, iformat, self.width, self.height, format, GL_UNSIGNED_BYTE, self.pixels)
+
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)		
-		
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)
+
 		self.scale = scale
 		self.left = left
 		self.top = top
-		
+
 	def draw(self, left=None, top=None, scale=None, width=None, height=None):
 
 		if width is None:
 			width = self.width
 		if height is None:
-			height = self.height		
+			height = self.height
 		if left is None:
 			left = self.left
 		if top is None:
 			top = self.top
-			
+
 		if scale is None:
 			scale = self.scale
-			
+
 		width = scale * self.width
 		height = scale * self.height
-		
+
 		glEnable(GL_TEXTURE_2D)
 		glBindTexture(GL_TEXTURE_2D, self.texid)
 
@@ -373,7 +379,7 @@ class StaticImage:
 
 		glColor3f(1, 1, 1)
 		glBegin(GL_QUADS)
-		
+
 		# Top-left
 		glTexCoord2f(0, 1)
 		glVertex2f(left, top)
@@ -386,14 +392,14 @@ class StaticImage:
 
 		glTexCoord2f(1, 1)
 		glVertex2f(left+width, top)
-		
+
 		glEnd()
-		
+
 		glDisable(GL_TEXTURE_2D)
 		glBindTexture(GL_TEXTURE_2D, 0)
-		
+
 		return left, top, width, height
-	
+
 class Plot:
 
 	def __init__(self, caption, viewport, plot_size):
@@ -473,43 +479,52 @@ class Plot:
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
-		
+
 		# Caption
 
 		self.td.draw(self.caption,
 			self.viewport[2] - self.td.text_width(self.caption),
 			self.viewport[3])
-			
-		# Ticks                 
-	
+
+		# Ticks
+
 		self.td.draw('%.1f' % self.plot_size[1],
-			   int(0.01*self.plot_size[0]), 
+			   int(0.01*self.plot_size[0]),
 			   self.viewport[3])
 
 		glEnable(GL_DEPTH_TEST)
-		
+
 class GLVisualisation3D(object):
-	
+
 	MAX_HISTORIC_POSITIONS = 5
-	
+
 	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
 			camAzimuth = 40.0, camDistance = 6.0, camRotZ = 45.0):
-				
+
 		self.settings = settings
-				
+
 		self.vertical_fov = vertical_fov
 		self.world = bounding_box
 
 		self.screen_width = settings.screen_width
 		self.screen_height = settings.screen_height
 		self.screen_aspect = float(self.screen_width) / self.screen_height
-		
-		self.background_color = settings.background_color		
+
+		self.background_color = settings.background_color
 		self.show_velocity_vectors = False
-				
+
 		self.text_pos_x = 0.05
 		self.text_pos_y = 0.95
-		self.smallview_size_factor = settings.smallview_size_factor
+
+		self.topview_size = compute_fraction_if_not_absolute(settings.topview_size, self.screen_width)
+		self.topview_left = compute_fraction_if_not_absolute(settings.topview_left, self.screen_width)
+		print settings.topview_top, self.screen_height
+		self.topview_top = compute_fraction_if_not_absolute(settings.topview_top, self.screen_height)
+		print self.topview_left, self.topview_top, self.topview_size
+
+		self.sideview_size = compute_fraction_if_not_absolute(settings.sideview_size, self.screen_width)
+		self.sideview_left = compute_fraction_if_not_absolute(settings.sideview_left, self.screen_width)
+		self.sideview_top = compute_fraction_if_not_absolute(settings.sideview_top, self.screen_height)
 
 		self.camDistance = camDistance
 		self.camRotZ = camRotZ
@@ -517,44 +532,53 @@ class GLVisualisation3D(object):
 
 		self.boids_historic_values = HistoricValues(settings.plot_history_length)
 		self.shadow_boids_historic_values = HistoricValues(settings.plot_history_length)
-		
+
 		self.historic_boid_positions = []
 		self.historic_shadow_boid_positions = []
 
 		self.show_boids_as_birds = True
-		self.margin = int(settings.margin_factor * self.screen_width)
+
 		self.boid_scale_factor = settings.boid_scale_factor
 
+		self.stats_separation = compute_fraction_if_not_absolute(settings.stats_separation, self.screen_width)
+
 		# Set up plots
+		self.plot_left = compute_fraction_if_not_absolute(settings.plot_left, self.screen_width)
+		self.plot_separation = compute_fraction_if_not_absolute(settings.plot_separation, self.screen_width)
+
 		# Size in pixels
 		W = int(self.screen_width * settings.plot_width_factor)
 		H = int(self.screen_height * settings.plot_height_factor)
 		# Bbox diagonal
-		#vp = (self.margin, self.screen_height - self.margin - H, W, H)
+		#vp = (self.plot_left, self.screen_height - self.plot_separation - H, W, H)
 		#self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))
 		# Position entropy
-		vp = (self.margin, self.screen_height - self.margin - H*3, W, H*3)
+		vp = (self.plot_left, self.screen_height - self.plot_separation - H*3, W, H*3)
 		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0))
 		# Number of components
-		#vp = (self.margin, self.screen_height - 2*(self.margin + H) - (self.margin + H/2), W, H/2)
+		#vp = (self.plot_left, self.screen_height - 2*(self.plot_separation + H) - (self.plot_separation + H/2), W, H/2)
 		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
-		
-		vp = (self.margin, self.screen_height - 2*self.margin - H*4, W, H)
+
+		vp = (self.plot_left, self.screen_height - 2*self.plot_separation - H*4, W, H)
 		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0))
-		
-		self.boid_redness = np.zeros(600)	# XXX number of boids
-		
+
+		self.boid_redness = np.zeros(600)	# XXX uses number of boids
+
 		self.boid_model = OBJModel('bird.obj')
-		
+
 		self.logos = []
-		
+
 		for fname in settings.logos:
 			img = StaticImage(fname)
 			self.logos.append(img)
-			
-			scale = 1.0 * settings.logo_target_height / img.height 
-			img.scale = scale
-			
+
+			h = compute_fraction_if_not_absolute(settings.logo_target_height, self.screen_height)
+			img.scale = 1.0 * h / img.height
+
+		self.logo_left = compute_fraction_if_not_absolute(settings.logo_left, self.screen_width)
+		self.logo_top = compute_fraction_if_not_absolute(settings.logo_top, self.screen_height)
+		self.logo_separation = compute_fraction_if_not_absolute(settings.logo_separation, self.screen_width)
+
 		# Initialize OpenGL
 		glEnable(GL_DEPTH_TEST)
 		glEnable(GL_POINT_SMOOTH)
@@ -670,47 +694,47 @@ class GLVisualisation3D(object):
 		glLoadIdentity()
 
 		# Follow bird from behind, slightly above looking a bit downward
-		normvel = vel / np.linalg.norm(vel)		
+		normvel = vel / np.linalg.norm(vel)
 		Y = np.array([0,1,0])
 		eye = pos - 0.1*normvel + 0.03*Y
-		lookat = pos 
+		lookat = pos
 
 		gluLookAt(eye[0], eye[1], eye[2], lookat[0], lookat[1], lookat[2], 0.0, 1.0, 0.0)
-		
+
 	def draw_escapes(self, boids):
-		
+
 		if len(boids.escapes) == 0:
-			return 
-			
+			return
+
 		glPointSize(5)
 		glColor3f(0, 0, 1)
-		
-		glEnableClientState(GL_VERTEX_ARRAY)		
+
+		glEnableClientState(GL_VERTEX_ARRAY)
 
 		glVertexPointer(3, GL_FLOAT, 0, boids.escapes)
 		glDrawArrays(GL_POINTS, 0, len(boids.escapes))
-		
+
 		glDisableClientState(GL_VERTEX_ARRAY)
-		
+
 	def draw_shadow_boids(self, shadow_boids, shadow_big_boids, point_size):
-		
+
 		assert shadow_boids is not None
-				
+
 		glEnableClientState(GL_VERTEX_ARRAY)
-		
+
 		glColor3f(0.2, 0.2, 0.5)
 		glPointSize(point_size)
-		
+
 		glVertexPointer(3, GL_FLOAT, 0, shadow_boids.position)
 		glDrawArrays(GL_POINTS, 0, len(shadow_boids.position))
-		
+
 		glDisableClientState(GL_VERTEX_ARRAY)
 
 	def draw_boids_as_points(self, point_size, boids, big_boids, shadow_boids, show_velocity_vectors, show_shadow_velocity_difference, bird_perspective):
-		
+
 		glEnableClientState(GL_VERTEX_ARRAY)
-		#glEnableClientState(GL_NORMAL_ARRAY)		
-		
+		#glEnableClientState(GL_NORMAL_ARRAY)
+
 		# Velocity vectors
 		if show_velocity_vectors:
 			glColor3f(1, 0, 0)
@@ -728,31 +752,31 @@ class GLVisualisation3D(object):
 		if show_shadow_velocity_difference or True:
 			#print shadow_boids
 			glEnableClientState(GL_COLOR_ARRAY)
-			
+
 			# pos_diff = np.ones(len(boids.position)) - boids.diff_position(shadow_boids)
-			
+
 			# Vector
 			avg_flock_velocity_vector = 1.0 * sum(boids.velocity) / len(boids.velocity)
 			redness = self.boid_redness
-			
+
 			for i, boid_velocity_vector in enumerate(boids.velocity):
-				
+
 				veldiff = boid_velocity_vector - avg_flock_velocity_vector
-				absveldiff = np.linalg.norm(abs(veldiff))		
+				absveldiff = np.linalg.norm(abs(veldiff))
 
 				CHANGE = 0.004
-							
+
 				r = redness[i]
 				if absveldiff < 0.01:
 					redness[i] = max(0, r-CHANGE)
 				else:
 					redness[i] = min(1, r+CHANGE)
-					
+
 			ones = np.ones(len(boids.position))
-						
+
 			coloring = np.array([ones, 1-redness, 1-redness]).T
 			#print coloring
-			
+
 			glColorPointer(3, GL_FLOAT, 0, coloring)
 		else:
 			glDisableClientState(GL_COLOR_ARRAY)
@@ -762,19 +786,19 @@ class GLVisualisation3D(object):
 		glDrawArrays(GL_POINTS, 0, len(boids.position))
 
 		glDisableClientState(GL_COLOR_ARRAY)
-			
+
 		if bird_perspective != -1:
 			glDisable(GL_DEPTH_TEST)
 			glColor3f(1, 0, 0)
 			glPointSize(10)
 			glBegin(GL_POINTS)
-			glVertex3f(*boids.position[bird_perspective])		
+			glVertex3f(*boids.position[bird_perspective])
 			glEnd()
 			glEnable(GL_DEPTH_TEST)
 
 		"""
 		# Big boids
-		
+
 		print big_boids.position
 
 		glPointSize(10*point_size)
@@ -783,13 +807,13 @@ class GLVisualisation3D(object):
 		glVertexPointer(3, GL_FLOAT, 0, big_boids.position)
 		glDrawArrays(GL_POINTS, 0, len(big_boids.position))
 		"""
-		
+
 		glDisableClientState(GL_VERTEX_ARRAY)
-		#glDisableClientState(GL_NORMAL_ARRAY)		
-		
-		
+		#glDisableClientState(GL_NORMAL_ARRAY)
+
+
 	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
-		
+
 		# Velocity vectors
 		if show_velocity_vectors:
 			glColor3f(1, 0, 0)
@@ -801,41 +825,41 @@ class GLVisualisation3D(object):
 				glVertex3f(p[0]+v[0]*SCALE, p[1]+v[1]*SCALE, p[2]+v[2]*SCALE)
 			glEnd()
 
-		# Boids themselves			
-		
+		# Boids themselves
+
 		glEnable(GL_LIGHTING)
 		glEnable(GL_LIGHT0)
 		glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE)
 		glShadeModel(GL_FLAT)
-		
+
 		pos = (20, 20, 20, 0.0)
-		glLightfv(GL_LIGHT0, GL_POSITION, pos)		
-		glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))		
-		glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.85, 0.85, 0.85, 1.0))		
-		glLightfv(GL_LIGHT0, GL_SPECULAR, (0.0, 0.0, 0.0, 1.0))					
-		
+		glLightfv(GL_LIGHT0, GL_POSITION, pos)
+		glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1.0))
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.85, 0.85, 0.85, 1.0))
+		glLightfv(GL_LIGHT0, GL_SPECULAR, (0.0, 0.0, 0.0, 1.0))
+
 		mat_ambient = (0.3, 0.3, 0.3, 1.0)
-		mat_diffuse = (0.7, 0.7, 0.7, 1.0)		
+		mat_diffuse = (0.7, 0.7, 0.7, 1.0)
 		mat_specular = (0, 0, 0, 1.0)
-		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient)		
-		glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)		
-		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular)		
-		
+		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient)
+		glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)
+		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular)
+
 		#red = (1, 0, 0, 1)
-		#glMaterialfv(GL_BACK, GL_AMBIENT, red)		
-		#glMaterialfv(GL_BACK, GL_DIFFUSE, red)					
-				
+		#glMaterialfv(GL_BACK, GL_AMBIENT, red)
+		#glMaterialfv(GL_BACK, GL_DIFFUSE, red)
+
 		self.boid_model.setup()
-			
+
 		glPushMatrix()
-		
+
 		# We're scaling below
-		glEnable(GL_RESCALE_NORMAL)	
-		
+		glEnable(GL_RESCALE_NORMAL)
+
 		if len(self.historic_boid_positions) >= 5:
-		
+
 			cur_direction = self.historic_boid_positions[-1] - self.historic_boid_positions[-2]
-						
+
 			# Direction vectors used for computing roll
 			roll_dir1 = self.historic_boid_positions[-1] - self.historic_boid_positions[-3]
 			roll_dir2 = self.historic_boid_positions[-3] - self.historic_boid_positions[-5]
@@ -845,115 +869,115 @@ class GLVisualisation3D(object):
 			roll_dir1 = roll_dir1 / n.reshape(-1,1)
 			n = np.apply_along_axis(np.linalg.norm, 1, roll_dir2)
 			roll_dir2 = roll_dir2 / n.reshape(-1,1)
-						
+
 			for i, p in enumerate(boids.position):
-												
-				glPushMatrix()		
 
-				glTranslatef(*p)					
+				glPushMatrix()
 
-				dx, dy, dz = cur_direction[i]																	
-				
+				glTranslatef(*p)
+
+				dx, dy, dz = cur_direction[i]
+
 				# Yaw
 				# XXX should have used world Z is up, would have made this stuff easier :)
-				
+
 				a = degrees(atan(dz/dx))
-				
+
 				if abs(dx) < 1e-4:
 					if dz > 0:
 						yaw = -90
-					else:						
-						yaw = 90								
-					
-				elif dx > 0:	
-					if dz > 0:
-						yaw = -a									
 					else:
-						yaw = -a																		
-					
-				else:
-					# dx < 0					
-					yaw = 180 - a																											
-					
-				glRotatef(yaw, 0, 1, 0)
-				
-				# Pitch
-				
-				dhorizontal = sqrt(dx*dx + dz*dz)			
-				pitch = atan(dy/dhorizontal)		
-								
-				glRotatef(degrees(pitch), 0, 0, 1)			
+						yaw = 90
 
-				# Roll		
-				
+				elif dx > 0:
+					if dz > 0:
+						yaw = -a
+					else:
+						yaw = -a
+
+				else:
+					# dx < 0
+					yaw = 180 - a
+
+				glRotatef(yaw, 0, 1, 0)
+
+				# Pitch
+
+				dhorizontal = sqrt(dx*dx + dz*dz)
+				pitch = atan(dy/dhorizontal)
+
+				glRotatef(degrees(pitch), 0, 0, 1)
+
+				# Roll
+
 				dir1 = roll_dir1[i]
 				dir2 = roll_dir2[i]
-				
+
 				# Use in-product to determine amount of roll
 				ip = dir1.dot(dir2)
-				
-				# Use y-component of cross product to determine direction to roll 
-				cross_y = dir1[0] * dir2[1] - dir1[1] * dir2[0]				
-				
+
+				# Use y-component of cross product to determine direction to roll
+				cross_y = dir1[0] * dir2[1] - dir1[1] * dir2[0]
+
 				factor = 60 * pow(1-ip, 2)				# uses fudge factor :)
 				roll = 90 * factor * np.sign(cross_y)
-				
+
 				#print ip, np.sign(cross_y), factor, roll
-				
+
 				glRotatef(roll, 1, 0, 0)
-				
+
 				# Make the bird fly along the +X axis
 				glRotatef(90, 0, 1, 0)
-				
+
 				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
-				
+
 				self.boid_model.draw()
-				
-				glPopMatrix()			
-				
+
+				glPopMatrix()
+
 			if False:
 				# Show historic path (for debugging)
 				glDisable(GL_LIGHTING)
-				glColor3f(1, 0, 0)					
+				glColor3f(1, 0, 0)
 				h = self.historic_boid_positions
 				n = len(boids.position)
 				for i in xrange(n):
-					glBegin(GL_LINE_STRIP)				
-					for j in [-1, -3, -5]:			
+					glBegin(GL_LINE_STRIP)
+					for j in [-1, -3, -5]:
 						glVertex3f(*h[j][i])
-					glEnd()				
-		
+					glEnd()
+
 		else:
-		
+
 			for p in boids.position:
 				glPushMatrix()
 				glTranslatef(*p)
 				glRotatef(90, 0, 1, 0)
 				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
-				
+
 				self.boid_model.draw()
-				
+
 				glPopMatrix()
-			
+
 		self.boid_model.done()
-		
+
 		glPopMatrix()
-		
+
 		glDisable(GL_LIGHTING)
-		glDisable(GL_RESCALE_NORMAL)		
-		
-		
+		glDisable(GL_RESCALE_NORMAL)
+
+
 	# Draw a grid over X and Z
 	def draw_grid(self, linewidth=3):
-		
+
 		N = int(1.0 * self.settings.grid_size / self.settings.grid_line_spacing)
 		s = N * self.settings.grid_line_spacing
 		min = -0.5 * s
 		max = 0.5*s
-		
+
 		# Light gray
 		glColor3f(0.6, 0.6, 0.6)
-		glBegin(GL_QUADS)		
+		glBegin(GL_QUADS)
 		glVertex3f(min, self.world.min[1], min)
 		glVertex3f(max, self.world.min[1], min)
 		glVertex3f(max, self.world.min[1], max)
@@ -962,8 +986,8 @@ class GLVisualisation3D(object):
 
 		# Darker gray
 		glColor3f(0.5, 0.5, 0.5)
-		glLineWidth(linewidth)	
-		
+		glLineWidth(linewidth)
+
 		S = s / (N-1)
 		glBegin(GL_LINES)
 		for i in xrange(N):
@@ -1006,13 +1030,13 @@ class GLVisualisation3D(object):
 		glEnd()
 
 	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1, show_axes = False):
-		
+
 		if len(self.historic_boid_positions) == self.MAX_HISTORIC_POSITIONS:
 			self.historic_boid_positions.pop(0)
 			self.historic_shadow_boid_positions.pop(0)
-			
-		self.historic_boid_positions.append(boids.position)			
-		self.historic_shadow_boid_positions.append(shadow_boids.position)			
+
+		self.historic_boid_positions.append(boids.position)
+		self.historic_shadow_boid_positions.append(shadow_boids.position)
 
 		#
 		# Main view
@@ -1036,25 +1060,25 @@ class GLVisualisation3D(object):
 
 		if show_axes:
 			self.draw_axes()
-			
+
 		point_size = self.settings.mainview_boids.point_size
-		
+
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)		
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
 
 		if self.show_boids_as_birds:
 			self.draw_boids_as_birds(boids, big_boids, self.show_velocity_vectors, shadow_boids)
 		else:
-			self.draw_boids_as_points(point_size, boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors, 
+			self.draw_boids_as_points(point_size, boids, big_boids=big_boids, show_velocity_vectors=self.show_velocity_vectors,
 				shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
-						
-		self.draw_escapes(boids)		
+
+		self.draw_escapes(boids)
 
 		# Stats
 
 		S = self.screen_height / 4
 
-		glViewport(self.screen_width - S - self.margin, self.screen_height - int(3.5*(S + self.margin)), S, S)
+		glViewport(self.screen_width - S - self.stats_separation, self.screen_height - int(3.5*(S + self.stats_separation)), S, S)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
@@ -1062,9 +1086,9 @@ class GLVisualisation3D(object):
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
-		
+
 		if False:
-			# Outline		
+			# Outline
 			glLineWidth(2)
 			glColor3f(1, 1, 1)
 			glBegin(GL_LINE_LOOP)
@@ -1073,9 +1097,9 @@ class GLVisualisation3D(object):
 			glVertex2f(1, 1)
 			glVertex2f(0, 1)
 			glEnd()
-		
+
 		glColor3f(0, 0, 0)
-		
+
 		self.text_pos_x = 0.05
 		self.text_pos_y = 0.95
 		self.text_line_height = 1.0 / 11
@@ -1111,24 +1135,23 @@ class GLVisualisation3D(object):
 		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
 		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, True)
 		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
-		
+
 		# Draws one line only
-		
+
 		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
 		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
-		
+
 		#
 		# Small views
 		#
-		
+
 		settings = self.settings.smallviews_boids
-		point_size = settings.point_size		
+		point_size = settings.point_size
 
 		# Top view (X right, Z DOWN, looking in negative Y direction)
 
-		S = int(self.smallview_size_factor * self.screen_height)
-
-		glViewport(self.screen_width - S - self.margin, self.screen_height - S - self.margin, S, S)
+		# glViewport specifies lower-left
+		glViewport(self.topview_left, self.topview_top-self.topview_size, self.topview_size, self.topview_size)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
@@ -1158,15 +1181,15 @@ class GLVisualisation3D(object):
 		if show_axes:
 			self.draw_axes()
 		glEnable(GL_DEPTH_TEST)
-		
+
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)			
-		
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
+
 		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
-		
+
 		# Side view (Y up, X right, looking in negative Z direction)
 
-		glViewport(self.screen_width - S - self.margin, self.screen_height - 2*(S + self.margin), S, S)
+		glViewport(self.sideview_left, self.sideview_top-self.sideview_size, self.sideview_size, self.sideview_size)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
@@ -1190,15 +1213,15 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]+0.5*s, c[1]-0.5*s)
 		glVertex2f(c[0]+0.5*s, c[1]+0.5*s)
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
-		glEnd()			
-		
+		glEnd()
+
 		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)				
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
 
 		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
-				
+
 		# Logos
-		
+
 		glViewport(0, 0, self.screen_width, self.screen_height)
 
 		glMatrixMode(GL_PROJECTION)
@@ -1206,13 +1229,13 @@ class GLVisualisation3D(object):
 		glOrtho(0, self.screen_width-1, self.screen_height-1, 0, -1, 1)
 
 		glMatrixMode(GL_MODELVIEW)
-		glLoadIdentity()		
-		
-		drawleft = self.settings.logo_left
-		drawtop = self.settings.logo_top
+		glLoadIdentity()
+
+		drawleft = self.logo_left
+		drawtop = self.logo_top
 		for logo in self.logos:
 			left, top, width, height = logo.draw(left=drawleft, top=drawtop)
-			drawleft += width + 40
+			drawleft += width + self.logo_separation
 
 
 

@@ -51,7 +51,7 @@ def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 		# bounds_factor = 0.0011,
 		num_neighbors = 60,
 		# escape_factor = 0.3,
-		
+
 		enforce_bounds = True,
 		in_random_direction = False,
 		use_global_velocity_average = False,
@@ -65,7 +65,7 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 	# Number of iterations after which to reset target for boids to move at.
 	# Needs to be run more often in 2D than in 3D.
 	new_target_iter = 45
-	
+
 	t = SimpleTimer()
 
 	# current_center = boids.center
@@ -79,7 +79,7 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 				if near is None:
 					break
 				boids.add_escapes_between(near, far)
-			
+
 		# apply rules that govern velocity
 		t.reset()
 		boids.update_velocity()
@@ -91,7 +91,7 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 
 		boids.move(1.0)
 		big_boids.move(1.0)
-		
+
 		i += 1
 
 		if i % new_target_iter == 0:
@@ -101,7 +101,7 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 	if escape_q is not None:
 		while escape_q.get()[0] is not None:
 			pass
-	
+
 	boid_q.put(None)
 	big_boid_q.put(None)
 	boid_q.close()
@@ -129,12 +129,12 @@ numbers = re.compile('(keypad )?([0-9])')
 
 def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q):
 	event = glgame.next_event()
-	
+
 	while event.type != NOEVENT:
 
 		if event.type is QUIT:
 			is_running.value = False
-			
+
 		elif event.type is KEYDOWN:
 			if event.key is K_ESCAPE:
 				is_running.value = False
@@ -145,7 +145,7 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 			elif event.key is K_p:
 				glgame.show_boids_as_points()
 			elif event.key is K_x:
-				glgame.toggle_axes()				
+				glgame.toggle_axes()
 			elif event.key is K_s and with_shadow_model:
 				glgame.toggle_shadow_boids()
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
@@ -158,88 +158,104 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 					perspective = int(match.group(2))
 					# 0 becomes -1 and unsets the bird perspective
 					glgame.set_bird_perspective(perspective - 1)
-				
+
 		elif event.type in [MOUSEBUTTONDOWN, MOUSEBUTTONUP, MOUSEMOTION]:
 			escape = glgame.process_mouse_event(event)
 			if escape is not None:
 				escape_q.put(escape)
-			
+
 		event = glgame.next_event()
-		
-		
+
+
 class BoidsSettings:
-	
+
 	def __init__(self):
 		self.point_size = 3
 		self.color = (1, 1, 1)
-		self.shadow_color = (0.2, 0.2, 0.5)			
-		
+		self.shadow_color = (0.2, 0.2, 0.5)
+
 class Settings:
-	
+
 	def __init__(self):
 		self.screen_width = 1000
 		self.screen_height = 700
 		self.fullscreen = False
-		
-		self.background_color = (0.5, 0.5, 0.5)		
-		
+
+		self.background_color = (0.5, 0.5, 0.5)
+
 		self.grid_size = 10
 		self.grid_line_spacing = 1
-		
-		# Fraction of screen width
-		self.margin_factor = 0.01
-		# Fraction of screen height (yuck)
-		self.smallview_size_factor = 0.25
-		
+
+		# Fraction of screen width, OR pixels
+		self.margin = 0.01
+
 		# Main 3D view
 		self.mainview_boids = BoidsSettings()
-		
+
 		# Top and side view
 		self.smallviews_boids = BoidsSettings()
 		self.smallviews_boids.point_size = 1
-		 
+
+		self.topview_size = 0.07
+		self.topview_left = 0.9
+		self.topview_top = 0.01
+
+		self.sideview_size = 0.07
+		self.sideview_left = 0.9
+		self.sideview_top = 0.01
+
+		self.stats_separation = 0.01
+
 		# Plots
+		self.plot_left = 0.01
 		self.plot_width_factor = 1 / 3.0
 		self.plot_height_factor = 1 / 5.0
+		self.plot_separation = 0.01
 		self.plot_history_length = 500
-		
+
 		self.num_boids = 600
 		self.dt = 0.001
 		self.smoothness = 1
 		self.boid_scale_factor = 0.05
-		
+
 		# List of file names
 		self.logos = []
-		self.logo_target_height = 100 	# Pixels
+		self.logo_target_height = 100
 		self.logo_left = 10
 		self.logo_top = 100
-		
+		self.logo_separation = 40
+
 
 
 if __name__ == '__main__':
-	
+
 	f = open('interactions.txt', 'a')
 	f.write('SESSION\n')
 	f.close()
-	
+
 	np.random.seed(123456)
-	
+
 	# Default settings
 	settings = Settings()
-			
+
 	# Possibly overridden by user script
 	if len(sys.argv) > 1:
-		execfile(sys.argv[1], {'settings':settings})	
-		
+		execfile(sys.argv[1], {'settings':settings})
+
+		if len(sys.argv) >= 4:
+			settings.screen_width = int(sys.argv[2])
+			settings.screen_height = int(sys.argv[3])
+			settings.fullscreen = False
+
 	num_boids = settings.num_boids
 	dt = settings.dt
 	smoothness = settings.smoothness
-			
+
 	# queue size gives bounds for how far the thread may be ahead
 	b_q = multiprocessing.Queue(maxsize=2)
 	bb_q = multiprocessing.Queue(maxsize=2)
 	escape_q = multiprocessing.queues.SimpleQueue()
-	
+
 	is_running = multiprocessing.Value('b', True)
 
 	bds = multiprocessing.Process(target=run_model, args=(b_q, bb_q, is_running,escape_q))
@@ -263,10 +279,10 @@ if __name__ == '__main__':
 	glgame = GLPyGame3D(settings)
 
 	t = SimpleTimer()
-	
+
 	while is_running.value:
 		points = process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
-	
+
 		if glgame.animate and is_running.value:
 			boids = b_q.get()
 			big_boids = bb_q.get()
@@ -283,24 +299,24 @@ if __name__ == '__main__':
 				if with_shadow_model:
 					shadow_boids.move(1.0/smoothness)
 					shadow_big_boids.move(1.0/smoothness)
-					
+
 				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 
 				fps = smoothness/t.elapsed()
 				t.print_time("%.1f fps" % (fps))
-				
+
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating
 			# Mouse events will have been processed by process_events() above
 			glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
-	
+
 	escape_q.put((None,None))
 
 	while True:
 		b_q.get()
 		if bb_q.get() is None:
 			break
-	
+
 	print "got values"
 
 	if with_shadow_model:
@@ -310,11 +326,11 @@ if __name__ == '__main__':
 			if shadow_bb_q.get() is None:
 				break
 		print "got shadow values"
-		
+
 	bds.join()
 	print "joined bds"
-	
+
 	if with_shadow_model:
 		shadow_bds.join()
 		print "joined shadow bds"
-	
+

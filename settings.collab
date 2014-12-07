@@ -1,0 +1,63 @@
+COLLAB_WIDTH = 7710
+COLLAB_HEIGHT = 2170
+
+s = settings
+
+s.fullscreen = True
+s.screen_width = COLLAB_WIDTH
+s.screen_height = COLLAB_HEIGHT
+
+aspect = 1.0 * s.screen_width / s.screen_height
+
+s.num_boids = 600
+s.dt = 0.001
+s.smoothness = 1
+
+#s.num_boids = 100
+#s.dt = 0.0001
+
+s.boid_scale_factor = 0.03
+
+# Top-left in the upper-right screen
+s.logo_left = 1.0 * (COLLAB_WIDTH - 1920 + 30) / COLLAB_WIDTH
+s.logo_target_height = 1.0 * 190 / COLLAB_HEIGHT
+s.logo_top = s.logo_target_height + 1.0 * 30 / COLLAB_HEIGHT
+s.logo_separation = 1.0 * 40 / COLLAB_WIDTH
+s.logos = [
+    'logos/UvA-logo-english.cropped.png',
+    'logos/computationalsciencelogo-fc-1080p.png',
+    'logos/SURF_SARA_fc.png',
+    'logos/nlesc.png'
+]
+
+# Main 3D view
+v = s.mainview_boids
+v.point_size = 7
+v.color = (0, 0, 0)
+v.shadow_color = (0.2, 0.2, 0.5)
+v.background_color = (129/255.0, 206/255.0, 213/255.0)
+
+# Top and side view
+s.topview_size = 0.07   # Fraction of screen width
+s.topview_left = 0.8    # Fraction of screen width
+s.topview_top = 0.3     # Fraction of screen HEIGHT
+
+s.sideview_size = s.topview_size
+s.sideview_left = s.topview_left + s.topview_size + 0.01
+s.sideview_top = s.topview_top
+
+s.stats_separation = 0.01
+
+v = s.smallviews_boids
+v.point_size = 3
+v.color = (1, 1, 1)
+v.shadow_color = (0.2, 0.2, 0.5)
+
+# Plots
+s.plot_left = 0.01
+s.plot_width_factor = 0.2
+s.plot_height_factor = 0.15
+s.plot_separation = 0.01
+s.plot_history_length = 1000
+
+
