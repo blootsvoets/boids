@@ -210,7 +210,7 @@ class GLPyGame3D(object):
 				f.close()
 
 				self.has_event = True
-				self.show_shadow_boids = True
+				self.show_shadow_boids = False
 
 			self.mouse_button_down = None
 
