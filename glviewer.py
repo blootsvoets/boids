@@ -1118,6 +1118,105 @@ class GLVisualisation3D(object):
 
 		self.draw_escapes(boids)
 
+		#
+		# Plots
+		#
+
+		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
+		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, True)
+		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
+
+		# Draws one line only
+
+		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
+		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
+
+		#
+		# Small views
+		#
+
+		settings = self.settings.smallviews_boids
+		point_size = settings.point_size
+
+		# Top view (X right, Z DOWN, looking in negative Y direction)
+
+		# glViewport specifies lower-left
+		glViewport(self.topview_left, self.topview_top-self.topview_size, self.topview_size, self.topview_size)
+
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		c = self.world.center
+		s = max(self.world.size[0], self.world.size[2])
+		# Make view slightly larger to allow boids to go outside world range and still be visible
+		s *= 1.1
+		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[2]+0.5*s, c[2]-0.5*s, self.world.max[1]+10, self.world.min[1]-10)
+
+		glMatrixMode(GL_MODELVIEW)
+		glLoadIdentity()
+
+		glDisable(GL_DEPTH_TEST)
+
+		glPushMatrix()
+
+		glRotatef(-90, 1, 0, 0)
+
+		self.draw_grid(2)
+
+		if show_axes:
+			self.draw_axes()
+
+		glPopMatrix()
+
+		# Outline
+		glLineWidth(2)
+		glColor3f(1, 1, 1)
+		glBegin(GL_LINE_LOOP)
+		glVertex3f(c[0]-0.5*s, c[2]-0.5*s, 0.1)
+		glVertex3f(c[0]+0.5*s, c[2]-0.5*s, 0.1)
+		glVertex3f(c[0]+0.5*s, c[2]+0.5*s, 0.1)
+		glVertex3f(c[0]-0.5*s, c[2]+0.5*s, 0.1)
+		glEnd()
+
+		glEnable(GL_DEPTH_TEST)
+
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
+
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+
+		# Side view (Y up, X right, looking in negative Z direction)
+
+		glViewport(self.sideview_left, self.sideview_top-self.sideview_size, self.sideview_size, self.sideview_size)
+
+		glMatrixMode(GL_PROJECTION)
+		glLoadIdentity()
+		c = self.world.center
+		s = max(self.world.size[0], self.world.size[1])
+		# Make view slightly larger to allow boids to go outside world range and still be visible
+		s *= 1.1
+		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[1]-0.5*s, c[1]+0.5*s, self.world.min[2]-10, self.world.max[2]+10)
+
+		glMatrixMode(GL_MODELVIEW)
+		glLoadIdentity()
+
+		if show_axes:
+			self.draw_axes()
+
+		# Outline
+		glLineWidth(2)
+		glColor3f(1, 1, 1)
+		glBegin(GL_LINE_LOOP)
+		glVertex2f(c[0]-0.5*s, c[1]-0.5*s)
+		glVertex2f(c[0]+0.5*s, c[1]-0.5*s)
+		glVertex2f(c[0]+0.5*s, c[1]+0.5*s)
+		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
+		glEnd()
+
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
+
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+
 		# Stats
 
 		W = self.stats_width*2 + self.stats_separation
@@ -1200,98 +1299,6 @@ class GLVisualisation3D(object):
 			# self.print_text("Orig. velocity: %0.1f" % (shadow_boids.velocity_stddev))
 
 		#
-		# Plots
-		#
-
-		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
-		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, True)
-		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
-
-		# Draws one line only
-
-		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
-		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
-
-		#
-		# Small views
-		#
-
-		settings = self.settings.smallviews_boids
-		point_size = settings.point_size
-
-		# Top view (X right, Z DOWN, looking in negative Y direction)
-
-		# glViewport specifies lower-left
-		glViewport(self.topview_left, self.topview_top-self.topview_size, self.topview_size, self.topview_size)
-
-		glMatrixMode(GL_PROJECTION)
-		glLoadIdentity()
-		c = self.world.center
-		s = max(self.world.size[0], self.world.size[2])
-		# Make view slightly larger to allow boids to go outside world range and still be visible
-		s *= 1.1
-		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[2]+0.5*s, c[2]-0.5*s, self.world.max[1]+10, self.world.min[1]-10)
-
-		glMatrixMode(GL_MODELVIEW)
-		glLoadIdentity()
-
-		# Outline
-		glLineWidth(2)
-		glColor3f(1, 1, 1)
-		glBegin(GL_LINE_LOOP)
-		glVertex2f(c[0]-0.5*s, c[2]-0.5*s)
-		glVertex2f(c[0]+0.5*s, c[2]-0.5*s)
-		glVertex2f(c[0]+0.5*s, c[2]+0.5*s)
-		glVertex2f(c[0]-0.5*s, c[2]+0.5*s)
-		glEnd()
-
-		glRotatef(-90, 1, 0, 0)
-
-		glDisable(GL_DEPTH_TEST)
-		self.draw_grid(2)
-		if show_axes:
-			self.draw_axes()
-		glEnable(GL_DEPTH_TEST)
-
-		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
-
-		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
-
-		# Side view (Y up, X right, looking in negative Z direction)
-
-		glViewport(self.sideview_left, self.sideview_top-self.sideview_size, self.sideview_size, self.sideview_size)
-
-		glMatrixMode(GL_PROJECTION)
-		glLoadIdentity()
-		c = self.world.center
-		s = max(self.world.size[0], self.world.size[1])
-		# Make view slightly larger to allow boids to go outside world range and still be visible
-		s *= 1.1
-		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[1]-0.5*s, c[1]+0.5*s, self.world.min[2]-10, self.world.max[2]+10)
-
-		glMatrixMode(GL_MODELVIEW)
-		glLoadIdentity()
-
-		if show_axes:
-			self.draw_axes()
-
-		# Outline
-		glLineWidth(2)
-		glColor3f(1, 1, 1)
-		glBegin(GL_LINE_LOOP)
-		glVertex2f(c[0]-0.5*s, c[1]-0.5*s)
-		glVertex2f(c[0]+0.5*s, c[1]-0.5*s)
-		glVertex2f(c[0]+0.5*s, c[1]+0.5*s)
-		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
-		glEnd()
-
-		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
-
-		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
-
-		#
 		# Images and such
 		#
 
@@ -1317,3 +1324,15 @@ class GLVisualisation3D(object):
 		self.rules_image.draw(self.rules_left, self.rules_top)
 		self.equation_image.draw(self.equation_left, self.equation_top)
 
+		# XXX abusing different text drawer here
+
+		glDisable(GL_DEPTH_TEST)
+
+		t = 'TOP'
+		left = self.topview_left + 0.5*(self.topview_size - self.stats_text_drawer.text_width(t))
+		top = self.topview_top + self.stats_text_drawer.glyph_height
+		self.stats_text_drawer.draw(t, left, top)
+
+		t = 'SIDE'
+		left = self.sideview_left + 0.5*(self.sideview_size - self.stats_text_drawer.text_width(t))
+		self.stats_text_drawer.draw(t, left, top)
