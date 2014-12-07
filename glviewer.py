@@ -798,35 +798,13 @@ class GLVisualisation3D(object):
 		# Boids themselves
 
 		glPointSize(point_size)
-		if show_shadow_velocity_difference or True:
+		if show_shadow_velocity_difference or True:	# XXX note the True :)
 			#print shadow_boids
 			glEnableClientState(GL_COLOR_ARRAY)
 
 			# pos_diff = np.ones(len(boids.position)) - boids.diff_position(shadow_boids)
 
-			# Vector
-			avg_flock_velocity_vector = 1.0 * sum(boids.velocity) / len(boids.velocity)
-			redness = self.boid_redness
-
-			for i, boid_velocity_vector in enumerate(boids.velocity):
-
-				veldiff = boid_velocity_vector - avg_flock_velocity_vector
-				absveldiff = np.linalg.norm(abs(veldiff))
-
-				CHANGE = 0.004
-
-				r = redness[i]
-				if absveldiff < 0.01:
-					redness[i] = max(0, r-CHANGE)
-				else:
-					redness[i] = min(1, r+CHANGE)
-
-			ones = np.ones(len(boids.position))
-
-			coloring = np.array([ones, 1-redness, 1-redness]).T
-			#print coloring
-
-			glColorPointer(3, GL_FLOAT, 0, coloring)
+			glColorPointer(3, GL_FLOAT, 0, self.boid_redness)
 		else:
 			glDisableClientState(GL_COLOR_ARRAY)
 			glColor3f(1, 1, 1)
@@ -1086,6 +1064,13 @@ class GLVisualisation3D(object):
 
 		self.historic_boid_positions.append(boids.position)
 		self.historic_shadow_boid_positions.append(shadow_boids.position)
+
+		# Update boid redness color array
+
+		r = np.ones(boids.size)
+		g = b = 1 - boids.redness
+
+		self.boid_redness = np.array([r, g, b]).T
 
 		#
 		# Main view
