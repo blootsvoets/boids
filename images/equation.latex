@@ -1,0 +1,1 @@
+S_{entropy} = -k * \int p(x)*log_2(p(x))
