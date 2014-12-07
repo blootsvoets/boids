@@ -815,8 +815,9 @@ class GLVisualisation3D(object):
 		glDisableClientState(GL_COLOR_ARRAY)
 
 		if bird_perspective != -1:
+			# Show position of perspective bird
 			glDisable(GL_DEPTH_TEST)
-			glColor3f(1, 0, 0)
+			glColor3f(0, 1, 0)
 			glPointSize(10)
 			glBegin(GL_POINTS)
 			glVertex3f(*boids.position[bird_perspective])
