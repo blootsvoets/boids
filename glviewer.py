@@ -317,9 +317,10 @@ class TextDrawer2:
 
 class StaticImage:
 
-	def __init__(self, imgfile, scale=None, left=None, top=None):
+	def __init__(self, imgfile):
 		img = Image.open(imgfile)
 		self.width, self.height = img.size
+		self.aspect = 1.0 * self.width / self.height
 		self.mode = img.mode
 		self.pixels = img.tostring('raw')
 		del img
@@ -349,9 +350,9 @@ class StaticImage:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR)
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE)
 
-		self.scale = scale
-		self.left = left
-		self.top = top
+		self.scale = 1.0
+		self.left = 0.0
+		self.top = 0.0
 
 	def draw(self, left=None, top=None, scale=None, width=None, height=None):
 
@@ -381,16 +382,16 @@ class StaticImage:
 		glBegin(GL_QUADS)
 
 		# Top-left
-		glTexCoord2f(0, 1)
+		glTexCoord2f(0, 0)
 		glVertex2f(left, top)
 
-		glTexCoord2f(0, 0)
+		glTexCoord2f(0, 1)
 		glVertex2f(left, top-height)
 
-		glTexCoord2f(1, 0)
+		glTexCoord2f(1, 1)
 		glVertex2f(left+width, top-height)
 
-		glTexCoord2f(1, 1)
+		glTexCoord2f(1, 0)
 		glVertex2f(left+width, top)
 
 		glEnd()
@@ -588,6 +589,7 @@ class GLVisualisation3D(object):
 
 		#
 		# Logos
+		#
 
 		self.logos = []
 
@@ -601,6 +603,17 @@ class GLVisualisation3D(object):
 		self.logo_left = compute_fraction_if_not_absolute(settings.logo_left, self.screen_width)
 		self.logo_top = compute_fraction_if_not_absolute(settings.logo_top, self.screen_height)
 		self.logo_separation = compute_fraction_if_not_absolute(settings.logo_separation, self.screen_width)
+
+		#
+		# Other images
+		#
+
+		self.rules_image = StaticImage('./images/boid_rules.png')
+		self.rules_left = compute_fraction_if_not_absolute(settings.rules_left, self.screen_width)
+		self.rules_top = compute_fraction_if_not_absolute(settings.rules_top, self.screen_height)
+		self.rules_width = compute_fraction_if_not_absolute(settings.rules_width, self.screen_width)
+		self.rules_image.width = self.rules_width
+		self.rules_image.height = self.rules_width / self.rules_image.aspect
 
 		# Initialize OpenGL
 		glEnable(GL_DEPTH_TEST)
@@ -1243,16 +1256,21 @@ class GLVisualisation3D(object):
 
 		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
 
-		# Logos
+		#
+		# Images and such
+		#
 
 		glViewport(0, 0, self.screen_width, self.screen_height)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
-		glOrtho(0, self.screen_width-1, self.screen_height-1, 0, -1, 1)
+		# (0,0) is lower-left, Y is up
+		glOrtho(0, self.screen_width-1, 0, self.screen_height-1, -1, 1)
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
+
+		# Logos
 
 		drawleft = self.logo_left
 		drawtop = self.logo_top
@@ -1260,5 +1278,6 @@ class GLVisualisation3D(object):
 			left, top, width, height = logo.draw(left=drawleft, top=drawtop)
 			drawleft += width + self.logo_separation
 
-
+		# Images
+		self.rules_image.draw(self.rules_left, self.rules_top)
 

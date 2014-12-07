@@ -226,6 +226,9 @@ class Settings:
 		self.logo_top = 100
 		self.logo_separation = 40
 
+		self.rules_left = 0.01
+		self.rules_top = 0.01
+		self.rules_width = 0.25
 
 
 if __name__ == '__main__':
