@@ -204,7 +204,12 @@ class Settings:
 		self.sideview_left = 0.9
 		self.sideview_top = 0.01
 
+		self.stats_left = 0.1
+		self.stats_top = 0.5
+		self.stats_width = 0.25
+		self.stats_height = 0.2
 		self.stats_separation = 0.01
+		self.stats_font = ('fonts/glyphs-14-normal-8x17.png', 8, 17)
 
 		# Plots
 		self.plot_left = 0.01
@@ -213,6 +218,7 @@ class Settings:
 		self.plot_height = 1 / 5.0
 		self.plot_separation = 0.01
 		self.plot_history_length = 500
+		self.plot_font = ('fonts/glyphs-24-normal-14x29.png', 14, 29)
 
 		self.num_boids = 600
 		self.dt = 0.001

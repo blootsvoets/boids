@@ -403,16 +403,12 @@ class StaticImage:
 
 class Plot:
 
-	def __init__(self, caption, viewport, plot_size):
+	def __init__(self, caption, viewport, plot_size, font):
 		self.caption = caption
 		self.viewport = viewport
 		self.plot_size = plot_size
 		self.linewidth = 2
-
-		#self.td = TextDrawer2('fonts/glyphs-14-normal-8x17.png', 8, 17)
-		#self.td = TextDrawer2('fonts/glyphs-16-normal-10x19.png', 10, 19)
-		self.td = TextDrawer2('fonts/glyphs-24-normal-14x29.png', 14, 29)
-		#self.td = TextDrawer2('fonts/glyphs-32-normal-19x38.png', 19, 38)
+		self.td = TextDrawer2(*font)
 
 	def draw(self, hv_boids, hv_shadow_boids, events, show_shadow_boids):
 
@@ -541,7 +537,12 @@ class GLVisualisation3D(object):
 
 		self.boid_scale_factor = settings.boid_scale_factor
 
+		self.stats_left = compute_fraction_if_not_absolute(settings.stats_left, self.screen_width)
+		self.stats_top = compute_fraction_if_not_absolute(settings.stats_top, self.screen_height)
+		self.stats_width = compute_fraction_if_not_absolute(settings.stats_width, self.screen_width)
+		self.stats_height = compute_fraction_if_not_absolute(settings.stats_height, self.screen_height)
 		self.stats_separation = compute_fraction_if_not_absolute(settings.stats_separation, self.screen_width)
+		self.stats_text_drawer = TextDrawer2(*settings.stats_font)
 
 		#
 		# Set up plots
@@ -557,25 +558,25 @@ class GLVisualisation3D(object):
 
 		# Bbox diagonal
 		#vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
-		#self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))
+		#self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
 		# top -= self.plot_height
 		# top -= self.plot_separation
 
 		# Position entropy
 		vp = (self.plot_left, top - self.plot_height*3, self.plot_width, self.plot_height*3)
-		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0))
+		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
 		top -= self.plot_height * 3
 		top -= self.plot_separation
 
 		# Number of components
 		#vp = (self.plot_left, top - self.plot_height/2, self.plot_width, self.plot_height/2)
-		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
+		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
 		# top -= self.plot_height / 2
 		# top -= self.plot_separation
 
 		# Entropy difference
 		vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
-		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0))
+		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
 		top -= self.plot_height
 		top -= self.plot_separation
 
@@ -1119,13 +1120,13 @@ class GLVisualisation3D(object):
 
 		# Stats
 
-		S = self.screen_height / 4
+		W = self.stats_width*2 + self.stats_separation
 
-		glViewport(self.screen_width - S - self.stats_separation, self.screen_height - int(3.5*(S + self.stats_separation)), S, S)
+		glViewport(self.stats_left, self.stats_top-self.stats_height, W, self.stats_height)
 
 		glMatrixMode(GL_PROJECTION)
 		glLoadIdentity()
-		glOrtho(0.0, 1.0, 0.0, 1.0, -1.0, 1.0)
+		glOrtho(0.0, W, 0.0, self.stats_height, -1.0, 1.0)
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
@@ -1136,9 +1137,9 @@ class GLVisualisation3D(object):
 			glColor3f(1, 1, 1)
 			glBegin(GL_LINE_LOOP)
 			glVertex2f(0, 0)
-			glVertex2f(1, 0)
-			glVertex2f(1, 1)
-			glVertex2f(0, 1)
+			glVertex2f(W, 0)
+			glVertex2f(W, self.stats_height)
+			glVertex2f(0, self.stats_height)
 			glEnd()
 
 		glColor3f(0, 0, 0)
@@ -1148,11 +1149,26 @@ class GLVisualisation3D(object):
 		self.text_line_height = 1.0 / 11
 
 		hv = self.boids_historic_values
-		self.print_text("Size: %0.1f" % hv.bbox_diagonal[-1])
-		self.print_text("Components: %d" % hv.num_conn_components[-1])
-		self.print_text("Pos. entropy: %0.3f" % hv.pos_entropy[-1])
-		self.print_text("Vel. entropy: %0.3f" % hv.vel_entropy[-1])
-		self.print_text("PosVel. ent.: %0.3f" % hv.posvel_entropy[-1])
+
+		gh = self.stats_text_drawer.glyph_height
+
+		left = 0
+		top = self.stats_height
+
+		self.stats_text_drawer.draw("Nudged" % hv.bbox_diagonal[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("-"*20, left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Size         : %0.1f" % hv.bbox_diagonal[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Components   : %d" % hv.num_conn_components[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Pos. entropy : %0.3f" % hv.pos_entropy[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Vel. entropy : %0.3f" % hv.vel_entropy[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("PosVel. ent. : %0.3f" % hv.posvel_entropy[-1], left, top)
+		top -= gh
 
 		# self.print_text("Velocity: %0.2f" % (boids.velocity_stddev))
 		# self.print_text("%0.3f; %0.3f; %0.3f" % (boids.c_int(5),boids.c_int(10),boids.c_int(20)))
@@ -1161,12 +1177,24 @@ class GLVisualisation3D(object):
 
 			# self.print_text("Unmodified")
 			hv = self.shadow_boids_historic_values
-			self.print_text('')
-			self.print_text("Size: %0.1f" % hv.bbox_diagonal[-1])
-			self.print_text("Components: %d" % hv.num_conn_components[-1])
-			self.print_text("Pos. entropy: %0.3f" % hv.pos_entropy[-1])
-			self.print_text("Vel. entropy: %0.3f" % hv.vel_entropy[-1])
-			self.print_text("PosVel. ent.: %0.3f" % hv.posvel_entropy[-1])
+
+			left = self.stats_width + self.stats_separation
+			top = self.stats_height
+
+			self.stats_text_drawer.draw("Undisturbed" % hv.bbox_diagonal[-1], left, top)
+			top -= gh
+			self.stats_text_drawer.draw("-"*20, left, top)
+			top -= gh
+			self.stats_text_drawer.draw("Size         : %0.1f" % hv.bbox_diagonal[-1], left, top)
+			top -= gh
+			self.stats_text_drawer.draw("Components   : %d" % hv.num_conn_components[-1], left, top)
+			top -= gh
+			self.stats_text_drawer.draw("Pos. entropy : %0.3f" % hv.pos_entropy[-1], left, top)
+			top -= gh
+			self.stats_text_drawer.draw("Vel. entropy : %0.3f" % hv.vel_entropy[-1], left, top)
+			top -= gh
+			self.stats_text_drawer.draw("PosVel. ent. : %0.3f" % hv.posvel_entropy[-1], left, top)
+			top -= gh
 
 			# self.print_text("Orig. distance: %0.1f" % (shadow_boids.position_stddev))
 			# self.print_text("Orig. velocity: %0.1f" % (shadow_boids.velocity_stddev))
