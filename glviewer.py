@@ -542,29 +542,52 @@ class GLVisualisation3D(object):
 
 		self.stats_separation = compute_fraction_if_not_absolute(settings.stats_separation, self.screen_width)
 
+		#
 		# Set up plots
+		#
+
 		self.plot_left = compute_fraction_if_not_absolute(settings.plot_left, self.screen_width)
-		self.plot_separation = compute_fraction_if_not_absolute(settings.plot_separation, self.screen_width)
+		self.plot_top = compute_fraction_if_not_absolute(settings.plot_top, self.screen_height)
+		self.plot_separation = compute_fraction_if_not_absolute(settings.plot_separation, self.screen_height)
+		self.plot_width = compute_fraction_if_not_absolute(settings.plot_width, self.screen_width)
+		self.plot_height = compute_fraction_if_not_absolute(settings.plot_height, self.screen_height)
 
-		# Size in pixels
-		W = int(self.screen_width * settings.plot_width_factor)
-		H = int(self.screen_height * settings.plot_height_factor)
+		top = self.plot_top
+
 		# Bbox diagonal
-		#vp = (self.plot_left, self.screen_height - self.plot_separation - H, W, H)
+		#vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
 		#self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0))
-		# Position entropy
-		vp = (self.plot_left, self.screen_height - self.plot_separation - H*3, W, H*3)
-		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0))
-		# Number of components
-		#vp = (self.plot_left, self.screen_height - 2*(self.plot_separation + H) - (self.plot_separation + H/2), W, H/2)
-		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
+		# top -= self.plot_height
+		# top -= self.plot_separation
 
-		vp = (self.plot_left, self.screen_height - 2*self.plot_separation - H*4, W, H)
+		# Position entropy
+		vp = (self.plot_left, top - self.plot_height*3, self.plot_width, self.plot_height*3)
+		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0))
+		top -= self.plot_height * 3
+		top -= self.plot_separation
+
+		# Number of components
+		#vp = (self.plot_left, top - self.plot_height/2, self.plot_width, self.plot_height/2)
+		#self.num_components_plot = Plot('Number of components', vp, (self.boids_historic_values.max_length, 5.0))
+		# top -= self.plot_height / 2
+		# top -= self.plot_separation
+
+		# Entropy difference
+		vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
 		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0))
+		top -= self.plot_height
+		top -= self.plot_separation
+
+		#
+		# Boids stuff
+		#
 
 		self.boid_redness = np.zeros(600)	# XXX uses number of boids
 
 		self.boid_model = OBJModel('bird.obj')
+
+		#
+		# Logos
 
 		self.logos = []
 

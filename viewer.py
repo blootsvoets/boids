@@ -208,8 +208,9 @@ class Settings:
 
 		# Plots
 		self.plot_left = 0.01
-		self.plot_width_factor = 1 / 3.0
-		self.plot_height_factor = 1 / 5.0
+		self.plot_top = 0.9
+		self.plot_width = 1 / 3.0
+		self.plot_height = 1 / 5.0
 		self.plot_separation = 0.01
 		self.plot_history_length = 500
 

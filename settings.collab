@@ -38,9 +38,9 @@ v.shadow_color = (0.2, 0.2, 0.5)
 v.background_color = (129/255.0, 206/255.0, 213/255.0)
 
 # Top and side view
-s.topview_size = 0.07   # Fraction of screen width
-s.topview_left = 0.8    # Fraction of screen width
-s.topview_top = 0.3     # Fraction of screen HEIGHT
+s.topview_size = 0.09   # Fraction of screen width
+s.topview_left = 0.78    # Fraction of screen width
+s.topview_top = 0.35     # Fraction of screen HEIGHT
 
 s.sideview_size = s.topview_size
 s.sideview_left = s.topview_left + s.topview_size + 0.01
@@ -55,9 +55,10 @@ v.shadow_color = (0.2, 0.2, 0.5)
 
 # Plots
 s.plot_left = 0.01
-s.plot_width_factor = 0.2
-s.plot_height_factor = 0.15
-s.plot_separation = 0.01
+s.plot_top = 0.98
+s.plot_width = 0.2
+s.plot_height = 0.15
+s.plot_separation = 0.02
 s.plot_history_length = 1000
 
 
