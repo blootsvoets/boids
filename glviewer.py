@@ -556,6 +556,9 @@ class GLVisualisation3D(object):
 
 		top = self.plot_top
 
+		POS_ENTROPY_HEIGHT_FACTOR = 2.5
+		ENTROPY_DIFF_HEIGHT_FACTOR = 1.5
+
 		# Bbox diagonal
 		#vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
 		#self.bbox_diagonal_plot = Plot('Bounding-box diagonal', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
@@ -563,9 +566,10 @@ class GLVisualisation3D(object):
 		# top -= self.plot_separation
 
 		# Position entropy
-		vp = (self.plot_left, top - self.plot_height*3, self.plot_width, self.plot_height*3)
-		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
-		top -= self.plot_height * 3
+		H = int(self.plot_height*POS_ENTROPY_HEIGHT_FACTOR)
+		vp = (self.plot_left, top - H, self.plot_width, H)
+		self.pos_entropy_plot = Plot('Entropy (position)', vp, (self.boids_historic_values.max_length, 4.0), settings.plot_font)
+		top -= H
 		top -= self.plot_separation
 
 		# Number of components
@@ -575,9 +579,10 @@ class GLVisualisation3D(object):
 		# top -= self.plot_separation
 
 		# Entropy difference
-		vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
-		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 5.0), settings.plot_font)
-		top -= self.plot_height
+		H = int(self.plot_height*ENTROPY_DIFF_HEIGHT_FACTOR)
+		vp = (self.plot_left, top - H, self.plot_width, H)
+		self.pos_entropy_difference_plot = Plot('Entropy difference (absolute)', vp, (self.boids_historic_values.max_length, 4.0), settings.plot_font)
+		top -= H
 		top -= self.plot_separation
 
 		#
