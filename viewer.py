@@ -62,11 +62,13 @@ def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 	return (b, bb)
 
 def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None):
+	
+	t = SimpleTimer()
+	t.print_time("viewer.run_boids(): started")
+	
 	# Number of iterations after which to reset target for boids to move at.
 	# Needs to be run more often in 2D than in 3D.
 	new_target_iter = 45
-
-	t = SimpleTimer()
 
 	# current_center = boids.center
 	# boids.add_escape(current_center)
