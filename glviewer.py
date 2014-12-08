@@ -104,7 +104,7 @@ class GLPyGame3D(object):
 	def show_boids_as_points(self):
 		self.vis.show_boids_as_birds = False
 
-	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
+	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
 
 		# Compute and store statistics
 
@@ -145,7 +145,7 @@ class GLPyGame3D(object):
 
 		# Draw
 
-		self.vis.draw(boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids, bird_perspective = self.bird_perspective, show_axes = self.show_axes)
+		self.vis.draw(animating, boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids, bird_perspective = self.bird_perspective, show_axes = self.show_axes)
 
 		# Done!
 
@@ -840,7 +840,7 @@ class GLVisualisation3D(object):
 		#glDisableClientState(GL_NORMAL_ARRAY)
 
 
-	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
+	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):			
 		
 		glEnable(GL_DEPTH_TEST)
 
@@ -875,10 +875,6 @@ class GLVisualisation3D(object):
 		glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)
 		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular)
 
-		#red = (1, 0, 0, 1)
-		#glMaterialfv(GL_BACK, GL_AMBIENT, red)
-		#glMaterialfv(GL_BACK, GL_DIFFUSE, red)
-
 		self.boid_model.setup()
 
 		glPushMatrix()
@@ -887,7 +883,7 @@ class GLVisualisation3D(object):
 		glEnable(GL_RESCALE_NORMAL)
 
 		if len(self.historic_boid_positions) >= 5:
-
+			
 			cur_direction = self.historic_boid_positions[-1] - self.historic_boid_positions[-2]
 
 			# Direction vectors used for computing roll
@@ -912,7 +908,7 @@ class GLVisualisation3D(object):
 				# XXX should have used world Z is up, would have made this stuff easier :)
 
 				a = degrees(atan(dz/dx))
-
+				
 				if abs(dx) < 1e-4:
 					if dz > 0:
 						yaw = -90
@@ -1061,14 +1057,20 @@ class GLVisualisation3D(object):
 
 		glEnd()
 
-	def draw(self, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1, show_axes = False):
+	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1, show_axes = False):
+		
+		# Don't update the historic positions when animating is paused, as otherwise the 
+		# historic positions all become equal causing the orientation (based on position
+		# over time) to fail below
+		if animating:					
+			
+			if len(self.historic_boid_positions) == self.MAX_HISTORIC_POSITIONS:
+				self.historic_boid_positions.pop(0)
+				self.historic_shadow_boid_positions.pop(0)
 
-		if len(self.historic_boid_positions) == self.MAX_HISTORIC_POSITIONS:
-			self.historic_boid_positions.pop(0)
-			self.historic_shadow_boid_positions.pop(0)
-
-		self.historic_boid_positions.append(boids.position)
-		self.historic_shadow_boid_positions.append(shadow_boids.position)
+			self.historic_boid_positions.append(boids.position)
+			self.historic_shadow_boid_positions.append(shadow_boids.position)
+		
 
 		# Update boid redness color array
 

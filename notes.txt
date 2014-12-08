@@ -3,20 +3,12 @@ BUGS
 making event when not showing shadow boids does enable showing of shadow
 boids, but does NOT place a marker in the plot
 
-when showing bird model pausing animation causes birds not to get rendered
-
-
-stat lines are y-spaced based on screen-space metric, not actual line height
-
 
 TODOs
 
-use TextDrawer in other places
-
 color boids by component?
 
-make configurable (config file/python script) for collab:
-- font size (hmm, we use the fixed GLUT fonts, which do not really have large sizes)
+fold model scale into vertex and normals, instead of apply to each bird in OpenGL
 
 
 IDEAS

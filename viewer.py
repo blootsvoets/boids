@@ -313,7 +313,7 @@ if __name__ == '__main__':
 					shadow_boids.move(1.0/smoothness)
 					shadow_big_boids.move(1.0/smoothness)
 
-				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
+				glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
 
 				fps = smoothness/t.elapsed()
 				t.print_time("%.1f fps" % (fps))
@@ -321,7 +321,7 @@ if __name__ == '__main__':
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating
 			# Mouse events will have been processed by process_events() above
-			glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
+			glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
 
 	escape_q.put((None,None))
 
