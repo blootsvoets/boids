@@ -1,4 +1,5 @@
 from time import time
+import os
 
 class SimpleTimer:
 	def __init__(self, silent = False):
@@ -15,5 +16,5 @@ class SimpleTimer:
 		if not self.silent:
 			t1 = time()			
 			dt = t1 - self.t
-			print "[%.4f s | %7.1f fps] %s" % (dt, 1.0/dt, msg)
+			print "[%5d | %.4f s | %8.1f fps] %s" % (os.getpid(), dt, 1.0/dt, msg)
 			self.t = t1

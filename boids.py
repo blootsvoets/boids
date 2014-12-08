@@ -421,6 +421,7 @@ class Boids(VectorCollection):
 			self.add_escape(escape)
 
 	def clear_escapes(self):
+		t = SimpleTimer()
 		t.print_time("clear escapes")
 		self.escapes = np.array([])
 

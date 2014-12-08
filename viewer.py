@@ -333,6 +333,7 @@ if __name__ == '__main__':
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating
 			# Mouse events will have been processed by process_events() above
+			t.print_time('main: drawing boids (no animation)')
 			glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
 
 	escape_q.put((None,None))
