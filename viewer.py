@@ -179,11 +179,11 @@ class BoidsSettings:
 class Settings:
 
 	def __init__(self):
-		self.screen_width = 1000
-		self.screen_height = 700
+		self.screen_width = 2000
+		self.screen_height = 1000
 		self.fullscreen = False
 
-		self.background_color = (0.5, 0.5, 0.5)
+		self.background_color = (0.7, 0.8, 1.0)
 
 		self.grid_size = 10
 		self.grid_line_spacing = 1
@@ -225,7 +225,7 @@ class Settings:
 		self.num_boids = 600
 		self.dt = 0.001
 		self.smoothness = 1
-		self.boid_scale_factor = 0.05
+		self.boid_scale_factor = 0.01
 
 		# List of file names
 		self.logos = []

@@ -495,7 +495,7 @@ class GLVisualisation3D(object):
 
 	MAX_HISTORIC_POSITIONS = 5
 
-	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
+	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-3, -1, -3], [4, 3, 4]),
 			camAzimuth = 40.0, camDistance = 6.0, camRotZ = 45.0):
 
 		self.settings = settings
@@ -866,8 +866,8 @@ class GLVisualisation3D(object):
 		glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.85, 0.85, 0.85, 1.0))
 		glLightfv(GL_LIGHT0, GL_SPECULAR, (0.0, 0.0, 0.0, 1.0))
 
-		mat_ambient = (0.3, 0.3, 0.3, 1.0)
-		mat_diffuse = (0.7, 0.7, 0.7, 1.0)
+		mat_ambient = (0.2, 0.2, 0.2, 1.0)
+		mat_diffuse = (0.4, 0.4, 0.4, 1.0)
 		mat_specular = (0, 0, 0, 1.0)
 		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient)
 		glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse)
@@ -1002,7 +1002,7 @@ class GLVisualisation3D(object):
 		max = 0.5*s
 
 		# Light gray
-		glColor3f(0.6, 0.6, 0.6)
+		glColor3f(0.7, 0.8, 1.0)
 		glBegin(GL_QUADS)
 		glVertex3f(min, self.world.min[1], min)
 		glVertex3f(max, self.world.min[1], min)
@@ -1011,7 +1011,7 @@ class GLVisualisation3D(object):
 		glEnd()
 
 		# Darker gray
-		glColor3f(0.5, 0.5, 0.5)
+		glColor3f(0.6, 0.7, 0.9)
 		glLineWidth(linewidth)
 
 		S = s / (N-1)
