@@ -841,6 +841,8 @@ class GLVisualisation3D(object):
 
 
 	def draw_boids_as_birds(self, boids, big_boids, show_velocity_vectors, shadow_boids = None, shadow_big_boids = None, draw_shadow = False):
+		
+		glEnable(GL_DEPTH_TEST)
 
 		# Velocity vectors
 		if show_velocity_vectors:
