@@ -148,10 +148,8 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 				glgame.toggle_axes()
 			elif event.key is K_s and with_shadow_model:
 				glgame.toggle_shadow_boids()
-				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 			elif event.key is K_v:
 				glgame.toggle_velocity_vectors()
-				glgame.draw(boids, big_boids, shadow_boids, shadow_big_boids)
 			else:
 				match = numbers.match(event.unicode)
 				if match:
