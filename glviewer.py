@@ -556,8 +556,8 @@ class GLVisualisation3D(object):
 
 		top = self.plot_top
 
-		POS_ENTROPY_HEIGHT_FACTOR = 2.5
-		ENTROPY_DIFF_HEIGHT_FACTOR = 1.5
+		POS_ENTROPY_HEIGHT_FACTOR = 2.3
+		ENTROPY_DIFF_HEIGHT_FACTOR = 1.4
 
 		# Bbox diagonal
 		#vp = (self.plot_left, top - self.plot_height, self.plot_width, self.plot_height)
