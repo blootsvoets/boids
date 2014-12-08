@@ -515,9 +515,7 @@ class GLVisualisation3D(object):
 
 		self.topview_size = compute_fraction_if_not_absolute(settings.topview_size, self.screen_width)
 		self.topview_left = compute_fraction_if_not_absolute(settings.topview_left, self.screen_width)
-		print settings.topview_top, self.screen_height
 		self.topview_top = compute_fraction_if_not_absolute(settings.topview_top, self.screen_height)
-		print self.topview_left, self.topview_top, self.topview_size
 
 		self.sideview_size = compute_fraction_if_not_absolute(settings.sideview_size, self.screen_width)
 		self.sideview_left = compute_fraction_if_not_absolute(settings.sideview_left, self.screen_width)
@@ -589,7 +587,7 @@ class GLVisualisation3D(object):
 		# Boids stuff
 		#
 
-		self.boid_redness = np.zeros(600)	# XXX uses number of boids
+		self.boid_redness = None
 
 		self.boid_model = OBJModel('bird.obj')
 
@@ -1060,8 +1058,8 @@ class GLVisualisation3D(object):
 	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1, show_axes = False):
 		
 		# Don't update the historic positions when animating is paused, as otherwise the 
-		# historic positions all become equal causing the orientation (based on position
-		# over time) to fail below
+		# historic positions all become equal causing the orientation computation below
+		# (based on position over time) to fail
 		if animating:					
 			
 			if len(self.historic_boid_positions) == self.MAX_HISTORIC_POSITIONS:
@@ -1071,7 +1069,6 @@ class GLVisualisation3D(object):
 			self.historic_boid_positions.append(boids.position)
 			self.historic_shadow_boid_positions.append(shadow_boids.position)
 		
-
 		# Update boid redness color array
 
 		r = np.ones(boids.size)

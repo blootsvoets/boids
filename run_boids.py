@@ -108,6 +108,7 @@ def run_boids(dims, boid_q, big_boid_q, is_running):
 			boids.move(1.0/smoothness)
 			big_boids.move(1.0/smoothness)
 			# copy the boids datastructure to avoid simultanious modification
+			t.print_time("putting boids (copies) in queue")
 			boid_q.put(boids.copy())
 			big_boid_q.put(big_boids.copy())
 		

@@ -72,6 +72,9 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 	# boids.add_escape(current_center)
 	i = 0
 	while is_running.value:
+		
+		t.print_time("viewer.run_boids(): top of loop")
+		
 		if escape_q is not None:
 			while not escape_q.empty():
 				i = 0
@@ -84,8 +87,9 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 		t.reset()
 		boids.update_velocity()
 		big_boids.update_velocity()
-		t.print_time("velocity computed")
+		t.print_time("viewer.run_boids(): velocity computed")
 
+		t.print_time("viewer.run_boids(): placing boids (copies) in queue")
 		boid_q.put(boids.copy())
 		big_boid_q.put(big_boids.copy())
 
@@ -286,20 +290,28 @@ if __name__ == '__main__':
 		shadow_big_boids = shadow_bb_q.get()
 	else:
 		shadow_boids = shadow_big_boids = None
+		
+	t = SimpleTimer()
+	t.print_time('main: Starting 3D interface')
 
 	glgame = GLPyGame3D(settings)
 
-	t = SimpleTimer()
-
 	while is_running.value:
+		
+		t.print_time('main: calling process_events()')
 		points = process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
 
 		if glgame.animate and is_running.value:
+			
+			t.print_time('main: getting boids from queue')
+			
 			boids = b_q.get()
 			big_boids = bb_q.get()
 			if with_shadow_model:
 				shadow_boids = shadow_b_q.get()
 				shadow_big_boids = shadow_bb_q.get()
+				
+			t.print_time('main: drawing boids')
 
 			t.reset()
 			for _ in xrange(smoothness):
@@ -314,7 +326,7 @@ if __name__ == '__main__':
 				glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
 
 				fps = smoothness/t.elapsed()
-				t.print_time("%.1f fps" % (fps))
+				t.print_time("main: %.1f fps" % (fps))
 
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating

@@ -421,7 +421,7 @@ class Boids(VectorCollection):
 			self.add_escape(escape)
 
 	def clear_escapes(self):
-		print "clear!"
+		t.print_time("clear escapes")
 		self.escapes = np.array([])
 
 	def set_random_direction(self):
