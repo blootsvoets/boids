@@ -1,6 +1,8 @@
 import numpy
 from OpenGL.GL import *
 
+SIZEOF_FLOAT = 4
+
 class OBJModel:
 	
 	def __init__(self, fname):
@@ -38,21 +40,39 @@ class OBJModel:
 				
 		f.close()
 		
-		self.vertex_array = numpy.array(self.vertex_array)
-		self.normal_array = numpy.array(self.normal_array)
+		self.num_vertices = len(self.vertex_array)		
+		
+		self.interleaved_array = []
+		for v, n in zip(self.vertex_array, self.normal_array):
+			self.interleaved_array.append(v)
+			self.interleaved_array.append(n)
+		
+		#self.vertex_array = numpy.array(self.vertex_array, dtype=numpy.float32)
+		#self.normal_array = numpy.array(self.normal_array, dtype=numpy.float32)
+		self.interleaved_array = numpy.array(self.interleaved_array, dtype=numpy.float32)
+						
+		self.interleaved_buffer = glGenBuffers(1)		
+		glBindBuffer(GL_ARRAY_BUFFER, self.interleaved_buffer)		
+		glBufferData(GL_ARRAY_BUFFER, self.num_vertices*6*SIZEOF_FLOAT, self.interleaved_array, GL_STATIC_DRAW)						
+				
+		glBindBuffer(GL_ARRAY_BUFFER, 0)		
 		
 	def setup(self):
 		glEnableClientState(GL_VERTEX_ARRAY)
-		glEnableClientState(GL_NORMAL_ARRAY)		
-		glVertexPointer(3, GL_FLOAT, 0, self.vertex_array)
-		glNormalPointer(GL_FLOAT, 0, self.normal_array)				
+		glEnableClientState(GL_NORMAL_ARRAY)
+		
+		glBindBuffer(GL_ARRAY_BUFFER, self.interleaved_buffer)		
+		glVertexPointer(3, GL_FLOAT, SIZEOF_FLOAT*6, ctypes.c_void_p(0))
+		glNormalPointer(GL_FLOAT, SIZEOF_FLOAT*6, ctypes.c_void_p(3*SIZEOF_FLOAT))
 				
 	def draw(self):		
-		glDrawArrays(GL_TRIANGLES, 0, 3*self.num_triangles)
+		glDrawArrays(GL_TRIANGLES, 0, self.num_triangles*3)
 		
 	def done(self):
 		glDisableClientState(GL_VERTEX_ARRAY)
 		glDisableClientState(GL_NORMAL_ARRAY)
+		
+		glBindBuffer(GL_ARRAY_BUFFER, 0)
 		
 
 if __name__ == '__main__':

@@ -978,6 +978,8 @@ class GLVisualisation3D(object):
 					glEnd()
 
 		else:
+			
+			# Not enough historic positions yet to compute orientation
 
 			for p in boids.position:
 				glPushMatrix()
