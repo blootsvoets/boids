@@ -54,9 +54,13 @@ class HistoricValues(object):
 		self.events.append(have_event)
 
 class GLPyGame3D(object):
-	def __init__(self, settings):
+	def __init__(self, settings, interactions_file):
 
 		self.settings = settings
+		self.interactions_file = interactions_file
+		
+		self.start_time = time.time()
+		self.current_frame = 1
 
 		pygame.display.init()
 
@@ -153,6 +157,7 @@ class GLPyGame3D(object):
 		#self.old_center = boids.center
 
 		self.has_event = False
+		self.current_frame += 1
 
 	def next_event(self):
 		return pygame.event.poll()
@@ -204,10 +209,12 @@ class GLPyGame3D(object):
 			if self.mouse_button_down == MB_LEFT and not self.has_motion and self.bird_perspective == -1:
 				ret = self.vis.get_points3D(self.mouse_down_x, self.mouse_down_y)
 
-				f = open('interactions.txt', 'a')
-				t = time.asctime(time.localtime())
-				f.write('%s %d %d\n' % (t, self.mouse_down_x, self.mouse_down_y))
-				f.close()
+				# Save mouse interaction to file, so we can (in theory) reproduce a set of results
+				t = time.time() - self.start_time
+				near, far = ret
+				self.interactions_file.write('%.6f %d %d %d %.6f %.6f %.6f %.6f %.6f %.6f\n' % \
+					(t, self.current_frame, self.mouse_down_x, self.mouse_down_y, near[0], near[1], near[2], far[0], far[1], far[2]))
+				self.interactions_file.flush()
 
 				self.has_event = True
 				self.show_shadow_boids = False

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, numpy
+import sys, numpy, time
 from pygame.locals import *
 from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
@@ -78,6 +78,7 @@ def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None)
 		t.print_time("viewer.run_boids(): top of loop")
 		
 		if escape_q is not None:
+			t.print_time("viewer.run_boids(): adding escapes")
 			while not escape_q.empty():
 				i = 0
 				near, far = escape_q.get()
@@ -245,10 +246,9 @@ class Settings:
 		self.equation_width = 0.25
 
 if __name__ == '__main__':
-
-	f = open('interactions.txt', 'a')
-	f.write('SESSION\n')
-	f.close()
+	
+	s = time.strftime('%Y%m%d-%H%M%S')
+	interactions_file = open('interactions-%s.txt' % s, 'wt')
 
 	np.random.seed(123456)
 
@@ -296,7 +296,7 @@ if __name__ == '__main__':
 	t = SimpleTimer()
 	t.print_time('main: Starting 3D interface')
 
-	glgame = GLPyGame3D(settings)
+	glgame = GLPyGame3D(settings, interactions_file)
 
 	while is_running.value:
 		
