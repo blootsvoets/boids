@@ -10,6 +10,8 @@ import numpy as np
 import array
 from model import OBJModel
 from math import atan, degrees, sqrt
+import worker
+
 try:
 	# PIL
 	import Image, ImageDraw, ImageFont
@@ -36,7 +38,7 @@ class HistoricValues(object):
 		# Only used for boids, not for shadow boids (will be same events)
 		self.events = []
 
-	def append(self, bbox_diagonal, num_conn_components, pos_entropy, vel_entropy, posvel_entropy, have_event):
+	def append(self, have_event, bbox_diagonal, num_conn_components, pos_entropy, vel_entropy, posvel_entropy):
 
 		if len(self.bbox_diagonal) == self.max_length:
 			self.bbox_diagonal.pop(0)
@@ -53,9 +55,21 @@ class HistoricValues(object):
 		self.posvel_entropy.append(posvel_entropy)
 		self.events.append(have_event)
 
+class MetricCalculator(worker.Worker):
+	def iteration(self, input, input_nowait):
+		num_pos_bins = 50
+		num_vel_bins = 50
+		
+		boids = input['boids']
+		bbox_diag = boids.bounding_box.diagonal
+		num_comp = len(boids.connected_components)
+		pos_entropy = boids.position_xyz_entropy(num_pos_bins)
+		vel_entropy = boids.velocity_xyz_entropy(num_vel_bins)
+		posvel_entropy = boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)
+		return {'metrics': (bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy)}
+
 class GLPyGame3D(object):
 	def __init__(self, settings):
-
 		self.settings = settings
 
 		pygame.display.init()
@@ -84,6 +98,8 @@ class GLPyGame3D(object):
 		self.has_event = False
 		self.had_vectors = False
 
+		self.boid_metrics = worker.WorkerServer('calculate plot metrics', MetricCalculator(), {'boids': None}, {'metrics': None})
+
 		glutInit()
 
 	def toggle_animate(self):
@@ -105,32 +121,14 @@ class GLPyGame3D(object):
 		self.vis.show_boids_as_birds = False
 
 	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
+		plot_shadow_boids = shadow_boids is not None
 
-		# Compute and store statistics
-
-		num_pos_bins = 50
-		num_vel_bins = 50
-
-		bbox_diag = boids.bounding_box.diagonal
-		num_comp = len(boids.connected_components)
-		pos_entropy = boids.position_xyz_entropy(num_pos_bins)
-		vel_entropy = boids.velocity_xyz_entropy(num_vel_bins)
-		posvel_entropy = boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)
-
+		# Compute statistics
 		if self.animate:
-			self.vis.boids_historic_values.append(bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy, self.has_event)
-
-		if shadow_boids is not None:
-
-			bbox_diag = shadow_boids.bounding_box.diagonal
-			num_comp = len(shadow_boids.connected_components)
-			pos_entropy = shadow_boids.position_xyz_entropy(num_pos_bins)
-			vel_entropy = shadow_boids.velocity_xyz_entropy(num_vel_bins)
-			posvel_entropy = shadow_boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins)
-
-			if self.animate:
-				self.vis.shadow_boids_historic_values.append(bbox_diag, num_comp, pos_entropy, vel_entropy, posvel_entropy, None)
-
+			self.boid_metrics.add_input('boids', boids)
+			if plot_shadow_boids:
+				self.boid_metrics.add_input('boids', shadow_boids)
+				
 		# XXX needs update
 		# with open("/Users/joris/Desktop/velocity.csv", "a") as f:
 		# 	f.write("%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%i\n" % (
@@ -147,6 +145,16 @@ class GLPyGame3D(object):
 
 		self.vis.draw(animating, boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids, bird_perspective = self.bird_perspective, show_axes = self.show_axes)
 
+		# store statistics
+		if self.animate:
+			boid_metrics = self.boid_metrics.get_result('metrics')
+			self.vis.boids_historic_values.append(self.has_event, *boid_metrics)
+
+			if plot_shadow_boids:
+				shadow_boid_metrics = self.boid_metrics.get_result('metrics')
+				self.vis.shadow_boids_historic_values.append(None, *shadow_boid_metrics)
+
+		self.vis.plot(plot_shadow_boids)
 		# Done!
 
 		pygame.display.flip()
@@ -215,6 +223,9 @@ class GLPyGame3D(object):
 			self.mouse_button_down = None
 
 		return ret
+	
+	def finalize(self):
+		self.boid_metrics.finalize()
 
 class TextDrawer:
 
@@ -1113,19 +1124,6 @@ class GLVisualisation3D(object):
 		self.draw_escapes(boids)
 
 		#
-		# Plots
-		#
-
-		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
-		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, True)
-		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
-
-		# Draws one line only
-
-		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
-		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
-
-		#
 		# Small views
 		#
 
@@ -1211,6 +1209,22 @@ class GLVisualisation3D(object):
 
 		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
 
+	def plot(self, plot_shadow_boids):
+		glViewport(0, 0, self.screen_width, self.screen_height)
+		
+		#
+		# Plots
+		#
+
+		#self.bbox_diagonal_plot.draw(self.boids_historic_values.bbox_diagonal, self.shadow_boids_historic_values.bbox_diagonal, self.boids_historic_values.events, show_shadow_boids)
+		self.pos_entropy_plot.draw(self.boids_historic_values.pos_entropy, self.shadow_boids_historic_values.pos_entropy, self.boids_historic_values.events, True)
+		#self.num_components_plot.draw(self.boids_historic_values.num_conn_components, self.shadow_boids_historic_values.num_conn_components, self.boids_historic_values.events, show_shadow_boids)
+
+		# Draws one line only
+
+		abs_entropy_diff = abs(np.array(self.boids_historic_values.pos_entropy) - np.array(self.shadow_boids_historic_values.pos_entropy))
+		self.pos_entropy_difference_plot.draw(abs_entropy_diff, None, self.boids_historic_values.events, False)
+
 		# Stats
 
 		W = self.stats_width*2 + self.stats_separation
@@ -1266,7 +1280,7 @@ class GLVisualisation3D(object):
 		# self.print_text("Velocity: %0.2f" % (boids.velocity_stddev))
 		# self.print_text("%0.3f; %0.3f; %0.3f" % (boids.c_int(5),boids.c_int(10),boids.c_int(20)))
 		# self.print_text("%0.3f; %0.3f" % (boids.c_int(50),boids.c_int(100)))
-		if shadow_boids is not None:
+		if plot_shadow_boids:
 
 			# self.print_text("Unmodified")
 			hv = self.shadow_boids_historic_values

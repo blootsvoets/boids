@@ -4,7 +4,7 @@ import numpy as np
 from numpy.core.umath_tests import inner1d
 from boundingbox import BoundingBox
 from simple_timer import SimpleTimer
-import multiprocessing
+import worker
 
 class VectorCollection(object):
 	def __init__(self, size, dimensions, min_velocity2, max_velocity2, start_center = None, num_neighbors = 0):
@@ -255,19 +255,22 @@ class BigBoids(VectorCollection):
 		self.velocity += self.approach_position(self.boids.center, self.approach_factor)
 		self.apply_min_max_velocity()
 
-def converge_neighbors(dims, size, factor, value_q, ret_q):
-	tmp_matrix = np.empty((size,dims))
-	while True:
-		mat, adj = value_q.recv()
-		if mat is None:
-			ret_q.send(None)
-			ret_q.close()
-			return
+class NeighborConverge(worker.Worker):
+	def __init__(self, dims, size, factor):
+		self.dims = dims
+		self.size = size
+		self.factor = factor
+	
+	def init(self):
+		self.tmp_matrix = np.empty((self.size,self.dims))
+	
+	def iteration(self, inputs, nowait_inputs):
+		mat, adj = inputs['matrix']
 
-		for b in xrange(size):
-			tmp_matrix[b] = np.average(mat[adj[b]],axis=0)
+		for b in xrange(self.size):
+			self.tmp_matrix[b] = np.average(mat[adj[b]],axis=0)
 
-		ret_q.send((tmp_matrix - mat)*factor)
+		return {'converged': (self.tmp_matrix - mat)*self.factor}
 
 class Boids(VectorCollection):
 	def __init__(self, num_boids, big_boids, dimensions = 3, start_center = [1.5,1.5,0.5], rule1_factor = 0.01,
@@ -293,36 +296,23 @@ class Boids(VectorCollection):
 		self.tmp_matrix = np.zeros((self.size,self.dimensions))
 		self.use_process = use_process
 		if self.use_process:
-			(vel_recv_q, self.vel_q) = multiprocessing.Pipe(False)
-			(self.vel_ret_q, vel_send_q) = multiprocessing.Pipe(False)
-			(pos_recv_q, self.pos_q) = multiprocessing.Pipe(False)
-			(self.pos_ret_q, pos_send_q) = multiprocessing.Pipe(False)
-			self.converge_vel = multiprocessing.Process(target=converge_neighbors,args=(self.dimensions,self.size,self.rule3_factor,vel_recv_q,vel_send_q))
-			self.converge_pos = multiprocessing.Process(target=converge_neighbors,args=(self.dimensions,self.size,self.rule1_factor,pos_recv_q,pos_send_q))
-			self.converge_vel.start()
-			self.converge_pos.start()
+			self.velocity_worker = worker.WorkerServer('converge velocity', NeighborConverge(self.dimensions,self.size,self.rule3_factor), {'matrix': None}, {'converged': None})
+			self.position_worker = worker.WorkerServer('converge position', NeighborConverge(self.dimensions,self.size,self.rule1_factor), {'matrix': None}, {'converged': None})
 
 	def finalize(self):
 		if self.use_process:
-			self.pos_q.send((None,None))
-			self.vel_q.send((None,None))
-			while self.vel_ret_q.recv() is not None:
-				continue
-			while self.pos_ret_q.recv() is not None:
-				continue
-			self.pos_q.close()
-			self.vel_q.close()
-			self.converge_vel.join()
-			self.converge_pos.join()
+			print "finalizing velocity worker"
+			self.velocity_worker.finalize()
+			self.position_worker.finalize()
 
 	def calculate_velocity(self):
-		t = SimpleTimer()
+		t = SimpleTimer(use_process_name=True)
 		tmp_velocity = np.zeros((self.size,self.dimensions))
 		self.adjacency_list
 		t.print_time("computed adjacency list")
 		if self.use_process:
-			self.vel_q.send((self.velocity, self.adjacency_list))
-			self.pos_q.send((self.position, self.adjacency_list))
+			self.velocity_worker.add_input('matrix', (self.velocity, self.adjacency_list))
+			self.position_worker.add_input('matrix', (self.position, self.adjacency_list))
 			t.print_time("sent message to rule process")
 		else:
 			tmp_velocity += self.converge_velocity_neighbors()
@@ -349,8 +339,8 @@ class Boids(VectorCollection):
 
 		# self.velocity += (np.random.random((self.size, self.dimensions)) - 0.5)*0.00005
 		if self.use_process:
-			tmp_velocity += self.pos_ret_q.recv()
-			tmp_velocity += self.vel_ret_q.recv()
+			tmp_velocity += self.velocity_worker.get_result('converged')
+			tmp_velocity += self.position_worker.get_result('converged')
 			t.print_time("applied process results")
 
 		self.velocity += tmp_velocity
@@ -421,7 +411,6 @@ class Boids(VectorCollection):
 			self.add_escape(escape)
 
 	def clear_escapes(self):
-		t.print_time("clear escapes")
 		self.escapes = np.array([])
 
 	def set_random_direction(self):
@@ -440,21 +429,12 @@ class Boids(VectorCollection):
 		return cpy
 
 	def update_redness(self):
-
-		THRESHOLD = 0.01
+		THRESHOLD2 = 0.0001
 		CHANGE = 0.012
 
-		avg_flock_velocity_vector = 1.0 * sum(self.velocity) / self.size
-
-		for i, boid_velocity_vector in enumerate(self.velocity):
-
-			veldiff = boid_velocity_vector - avg_flock_velocity_vector
-			absveldiff = np.linalg.norm(veldiff)
-
-			r = self.redness[i]
-			if absveldiff < THRESHOLD:
-				self.redness[i] = max(0, r-CHANGE)
-			else:
-				self.redness[i] = min(1, r+CHANGE)
-
-
+		diff_matrix = self.velocity - self.average_velocity
+		dist2_vector = inner1d(diff_matrix, diff_matrix)
+		
+		self.redness[dist2_vector < THRESHOLD2] -= CHANGE
+		self.redness[dist2_vector >= THRESHOLD2] += CHANGE
+		self.redness = np.clip(self.redness, 0.0, 1.0)

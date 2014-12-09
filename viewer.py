@@ -3,8 +3,7 @@ import sys, numpy
 from pygame.locals import *
 from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
-import multiprocessing
-import multiprocessing.queues
+import worker
 import numpy as np
 import re
 from simple_timer import SimpleTimer
@@ -40,15 +39,6 @@ def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 		rule_direction = 1.0, # factor for going to a random direction
 		bounds_factor = 1.1,
 		dt = dt,
-		# rule1_factor = 0.0019, # factor for going to the common center
-		# rule2_threshold = 0.01, # threshold for birds being close
-		# rule2_factor = 0.15, # speed at which close birds should move outside the threshold
-		# rule3_factor = 0.08, # factor for going at the same velocity as average
-		# escape_threshold = 0.012, # threshold for a big bird being close
-		# min_velocity2 = 0.0004, # avoids too much passivity
-		# max_velocity2 = 0.001, # avoids ever-increasing velocity that causes boids to escape the screen
-		# rule_direction = 0.001, # factor for going to a random direction
-		# bounds_factor = 0.0011,
 		num_neighbors = 60,
 		# escape_factor = 0.3,
 
@@ -61,87 +51,73 @@ def create_boids_3D(nboids=1000, nbig=1,use_process=False):
 	bb.set_boids(b)
 	return (b, bb)
 
-def run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q = None):
-	# Number of iterations after which to reset target for boids to move at.
-	# Needs to be run more often in 2D than in 3D.
-	new_target_iter = 45
-
-	t = SimpleTimer()
-
-	# current_center = boids.center
-	# boids.add_escape(current_center)
-	i = 0
-	while is_running.value:
+class BoidSimulation(worker.Worker):
+	def init(self):
+		self.t = SimpleTimer(use_process_name=True)
+		# Number of iterations after which to reset target for boids to move at.
+		# Needs to be run more often in 2D than in 3D.
+		self.new_target_iter = 45
+		self.i = 0
+		self.init_boids()
+		self.worker.add_result('boids', self.boids.copy())
+		self.worker.add_result('big_boids', self.big_boids.copy())
 		
-		t.print_time("viewer.run_boids(): top of loop")
+	def init_boids(self):
+		N_BIG_BOIDS = 0
+		self.boids, self.big_boids = create_boids_3D(num_boids, N_BIG_BOIDS, use_process=True)
 		
-		if escape_q is not None:
-			while not escape_q.empty():
-				i = 0
-				near, far = escape_q.get()
-				if near is None:
-					break
-				boids.add_escapes_between(near, far)
+	def iteration(self, input, input_nowait):
+		self.t.print_time("viewer.run_boids(): top of loop")
+		
+		if 'escape' in input_nowait:
+			escapes = input_nowait['escape']
+			for near, far in escapes:
+				self.boids.add_escapes_between(near, far)
+			if len(escapes) > 0:
+				self.i = 0
 
-		# apply rules that govern velocity
-		t.reset()
-		boids.update_velocity()
-		big_boids.update_velocity()
-		t.print_time("viewer.run_boids(): velocity computed")
+		self.boids.move(1.0)
+		self.big_boids.move(1.0)
+		self.t.print_time("viewer.run_boids(): moved boids")
+		
+		self.boids.update_velocity()
+		self.big_boids.update_velocity()
+		self.t.print_time("viewer.run_boids(): velocity computed")
 
-		t.print_time("viewer.run_boids(): placing boids (copies) in queue")
-		boid_q.put(boids.copy())
-		big_boid_q.put(big_boids.copy())
+		self.i += 1
 
-		boids.move(1.0)
-		big_boids.move(1.0)
+		if self.i % self.new_target_iter == 0:
+			self.boids.clear_escapes()
 
-		i += 1
+		self.t.print_time("viewer.run_boids(): placed boids (copies) in queue")
+		return {'boids': self.boids.copy(), 'big_boids': self.big_boids.copy()}
+		
+	def finalize(self):
+		print "finalizing boids"
+		self.boids.finalize()
 
-		if i % new_target_iter == 0:
-			boids.clear_escapes()
-
-	# clear queue
-	if escape_q is not None:
-		while escape_q.get()[0] is not None:
-			pass
-
-	boid_q.put(None)
-	big_boid_q.put(None)
-	boid_q.close()
-	big_boid_q.close()
-	boids.finalize()
-
-def run_model(boid_q, big_boid_q, is_running, escape_q):
-	# Set up boids model
-	N_BIG_BOIDS = 0
-	boids, big_boids = create_boids_3D(num_boids, N_BIG_BOIDS, use_process=True)
-	boid_q.put(boids.copy())
-	big_boid_q.put(big_boids.copy())
-	run_boids(boids, big_boids, boid_q, big_boid_q, is_running, escape_q)
-
-def run_shadow_model(init_boids, init_big_boids, boid_q, big_boid_q, is_running):
-	boids, big_boids = create_boids_3D(num_boids, 0, use_process=True)
-	boids.position = init_boids.position
-	# big_boids.position = init_big_boids.position
-	# big_boids.approach_factor = 0.0008
-	boid_q.put(boids.copy())
-	big_boid_q.put(big_boids.copy())
-	run_boids(boids, big_boids, boid_q, big_boid_q, is_running)
+class ShadowBoidSimulation(BoidSimulation):
+	def __init__(self, init_boids, init_big_boids):
+		self.init_position = init_boids.position
+	
+	def init_boids(self):
+		super(ShadowBoidSimulation, self).init_boids()
+		self.boids.position = self.init_position
+		del self.init_position
 
 numbers = re.compile('(keypad )?([0-9])')
 
-def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q):
+def process_events(glgame, worker, boids, big_boids, shadow_boids, shadow_big_boids):
 	event = glgame.next_event()
 
 	while event.type != NOEVENT:
 
 		if event.type is QUIT:
-			is_running.value = False
+			worker.stop_running()
 
 		elif event.type is KEYDOWN:
 			if event.key is K_ESCAPE:
-				is_running.value = False
+				worker.stop_running()
 			elif event.key is K_a:
 				glgame.toggle_animate()
 			elif event.key is K_b:
@@ -164,10 +140,9 @@ def process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_bi
 		elif event.type in [MOUSEBUTTONDOWN, MOUSEBUTTONUP, MOUSEMOTION]:
 			escape = glgame.process_mouse_event(event)
 			if escape is not None:
-				escape_q.put(escape)
+				worker.add_input_nowait('escape', escape)
 
 		event = glgame.next_event()
-
 
 class BoidsSettings:
 
@@ -267,51 +242,41 @@ if __name__ == '__main__':
 	smoothness = settings.smoothness
 
 	# queue size gives bounds for how far the thread may be ahead
-	b_q = multiprocessing.Queue(maxsize=2)
-	bb_q = multiprocessing.Queue(maxsize=2)
-	escape_q = multiprocessing.queues.SimpleQueue()
+	bds = worker.WorkerServer('boids', BoidSimulation(), {'escape': 0}, {'boids': 2, 'big_boids': 2})
 
-	is_running = multiprocessing.Value('b', True)
-
-	bds = multiprocessing.Process(target=run_model, args=(b_q, bb_q, is_running,escape_q))
-	bds.start()
-
-	boids = b_q.get()
-	big_boids = bb_q.get()
+	boids = bds.get_result('boids')
+	big_boids = bds.get_result('big_boids')
 
 	if with_shadow_model:
-		shadow_b_q = multiprocessing.Queue(maxsize=2)
-		shadow_bb_q = multiprocessing.Queue(maxsize=2)
+		shadow_bds = worker.WorkerServer('unaltered boids', ShadowBoidSimulation(boids, big_boids), {}, {'boids': 2, 'big_boids': 2})
 
-		shadow_bds = multiprocessing.Process(target=run_shadow_model, args=(boids, big_boids, shadow_b_q, shadow_bb_q, is_running,))
-		shadow_bds.start()
-
-		shadow_boids = shadow_b_q.get()
-		shadow_big_boids = shadow_bb_q.get()
+		shadow_boids = shadow_bds.get_result('boids')
+		shadow_big_boids = shadow_bds.get_result('big_boids')
 	else:
 		shadow_boids = shadow_big_boids = None
 		
-	t = SimpleTimer()
-	t.print_time('main: Starting 3D interface')
+	t = SimpleTimer(name="main")
+	t.print_time('Starting 3D interface')
 
 	glgame = GLPyGame3D(settings)
 
-	while is_running.value:
+	while bds.continue_run():
 		
-		t.print_time('main: calling process_events()')
-		points = process_events(glgame, is_running, boids, big_boids, shadow_boids, shadow_big_boids, escape_q)
+		t.print_time('calling process_events()')
+		points = process_events(glgame, bds, boids, big_boids, shadow_boids, shadow_big_boids)
 
-		if glgame.animate and is_running.value:
+		if glgame.animate and bds.continue_run():
 			
-			t.print_time('main: getting boids from queue')
+			t.print_time('getting boids from queue')
 			
-			boids = b_q.get()
-			big_boids = bb_q.get()
+			boids = bds.get_result('boids')
+			big_boids = bds.get_result('big_boids')
+			
 			if with_shadow_model:
-				shadow_boids = shadow_b_q.get()
-				shadow_big_boids = shadow_bb_q.get()
+				shadow_boids = shadow_bds.get_result('boids')
+				shadow_big_boids = shadow_bds.get_result('big_boids')
 				
-			t.print_time('main: drawing boids')
+			t.print_time('drawing boids')
 
 			t.reset()
 			for _ in xrange(smoothness):
@@ -326,34 +291,19 @@ if __name__ == '__main__':
 				glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
 
 				fps = smoothness/t.elapsed()
-				t.print_time("main: %.1f fps" % (fps))
+				t.print_time("%.1f fps" % (fps))
 
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating
 			# Mouse events will have been processed by process_events() above
 			glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
-
-	escape_q.put((None,None))
-
-	while True:
-		b_q.get()
-		if bb_q.get() is None:
-			break
-
+	
+	print "finalizing simulation"
+	bds.finalize()
 	print "got values"
 
 	if with_shadow_model:
-		# while not shadow_b_q.empty():
-		while True:
-			shadow_b_q.get()
-			if shadow_bb_q.get() is None:
-				break
+		shadow_bds.finalize()
 		print "got shadow values"
 
-	bds.join()
-	print "joined bds"
-
-	if with_shadow_model:
-		shadow_bds.join()
-		print "joined shadow bds"
-
+	glgame.finalize()
