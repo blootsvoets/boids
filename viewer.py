@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, numpy
+import sys, numpy, time
 from pygame.locals import *
 from boids import Boids, BigBoids
 from glviewer import GLPyGame3D
@@ -218,10 +218,9 @@ class Settings:
 		self.equation_width = 0.25
 
 if __name__ == '__main__':
-
-	f = open('interactions.txt', 'a')
-	f.write('SESSION\n')
-	f.close()
+	
+	s = time.strftime('%Y%m%d-%H%M%S')
+	interactions_file = open('interactions-%s.txt' % s, 'wt')
 
 	np.random.seed(123456)
 
@@ -258,7 +257,7 @@ if __name__ == '__main__':
 	t = SimpleTimer(name="main")
 	t.print_time('Starting 3D interface')
 
-	glgame = GLPyGame3D(settings)
+	glgame = GLPyGame3D(settings, interactions_file)
 
 	while bds.continue_run():
 		
@@ -296,6 +295,7 @@ if __name__ == '__main__':
 		elif not glgame.animate:
 			# Make sure 3D interaction stays possible when not animating
 			# Mouse events will have been processed by process_events() above
+			t.print_time('main: drawing boids (no animation)')
 			glgame.draw(glgame.animate, boids, big_boids, shadow_boids, shadow_big_boids)
 	
 	print "finalizing simulation"
