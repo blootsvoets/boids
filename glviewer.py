@@ -123,9 +123,12 @@ class GLPyGame3D(object):
 
 	def show_boids_as_points(self):
 		self.vis.show_boids_as_birds = False
+		
+	def toggle_world_boundary(self):
+		self.vis.show_world_boundary = not self.vis.show_world_boundary
 
 	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
-		plot_shadow_boids = shadow_boids is not None
+		plot_shadow_boids = shadow_boids is not None	
 
 		# Compute statistics
 		if self.animate:
@@ -416,6 +419,15 @@ class StaticImage:
 
 		glDisable(GL_TEXTURE_2D)
 		glBindTexture(GL_TEXTURE_2D, 0)
+		
+		glColor3f(0, 0, 0)
+		glLineWidth(3)
+		glBegin(GL_LINE_LOOP)
+		glVertex2f(left, top)
+		glVertex2f(left, top-height)
+		glVertex2f(left+width, top-height)
+		glVertex2f(left+width, top)		
+		glEnd()
 
 		return left, top, width, height
 
@@ -513,7 +525,7 @@ class GLVisualisation3D(object):
 
 	MAX_HISTORIC_POSITIONS = 5
 
-	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-3, -3, -3], [4, 4, 4]),
+	def __init__(self, settings, vertical_fov = 50, bounding_box = BoundingBox([-2.0, 0, -2], [2, 2, 2]),
 			camAzimuth = 40.0, camDistance = 6.0, camRotZ = 45.0):
 
 		self.settings = settings
@@ -550,6 +562,7 @@ class GLVisualisation3D(object):
 		self.historic_shadow_boid_positions = []
 
 		self.show_boids_as_birds = True
+		self.show_world_boundary = False
 
 		self.boid_scale_factor = settings.boid_scale_factor
 
@@ -897,6 +910,9 @@ class GLVisualisation3D(object):
 
 		# We're scaling below
 		glEnable(GL_RESCALE_NORMAL)
+		
+		glEnable(GL_COLOR_MATERIAL)
+		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
 
 		if len(self.historic_boid_positions) >= 5:
 			
@@ -972,6 +988,8 @@ class GLVisualisation3D(object):
 				glRotatef(90, 0, 1, 0)
 
 				glScalef(self.boid_scale_factor, self.boid_scale_factor, self.boid_scale_factor)
+				
+				glColor3f(*self.boid_redness[i])
 
 				self.boid_model.draw()
 
@@ -1072,7 +1090,47 @@ class GLVisualisation3D(object):
 		glVertex3f(0, 0, 1)
 
 		glEnd()
+		
+	def draw_world_boundary(self):
+		
+		b = self.world
+		v = b.min
+		w = b.max
+							
+		glDisable(GL_LIGHTING)
+		glColor3f(0, 1, 0)
+		glLineWidth(4)
+		
+		# XZ plane (low)
+		glBegin(GL_LINE_LOOP)
+		glVertex3f(v[0], v[1], v[2])
+		glVertex3f(w[0], v[1], v[2])
+		glVertex3f(w[0], v[1], w[2])
+		glVertex3f(v[0], v[1], w[2])
+		glEnd()
 
+		# XZ plane (high)
+		glBegin(GL_LINE_LOOP)
+		glVertex3f(v[0], w[1], v[2])
+		glVertex3f(w[0], w[1], v[2])
+		glVertex3f(w[0], w[1], w[2])
+		glVertex3f(v[0], w[1], w[2])
+		glEnd()
+		
+		glBegin(GL_LINES)
+		glVertex3f(v[0], v[1], v[2])
+		glVertex3f(v[0], w[1], v[2])
+
+		glVertex3f(w[0], v[1], v[2])
+		glVertex3f(w[0], w[1], v[2])
+
+		glVertex3f(w[0], v[1], w[2])
+		glVertex3f(w[0], w[1], w[2])
+
+		glVertex3f(v[0], v[1], w[2])
+		glVertex3f(v[0], w[1], w[2])
+		glEnd()
+		
 	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None, show_shadow_boids = False, bird_perspective = -1, show_axes = False):
 		
 		# Don't update the historic positions when animating is paused, as otherwise the 
@@ -1129,7 +1187,10 @@ class GLVisualisation3D(object):
 				shadow_boids=shadow_boids, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
 
 		self.draw_escapes(boids)
-
+		
+		if self.show_world_boundary:
+			self.draw_world_boundary()				
+			
 		#
 		# Small views
 		#
@@ -1147,7 +1208,7 @@ class GLVisualisation3D(object):
 		c = self.world.center
 		s = max(self.world.size[0], self.world.size[2])
 		# Make view slightly larger to allow boids to go outside world range and still be visible
-		s *= 1.1
+		s *= 1.2
 		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[2]+0.5*s, c[2]-0.5*s, self.world.max[1]+10, self.world.min[1]-10)
 
 		glMatrixMode(GL_MODELVIEW)
@@ -1162,11 +1223,25 @@ class GLVisualisation3D(object):
 		self.draw_grid(2)
 
 		if show_axes:
-			self.draw_axes()
+			self.draw_axes()		
 
-		glPopMatrix()
+		glEnable(GL_DEPTH_TEST)
 
+		if show_shadow_boids:
+			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
+
+		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+		
+		if self.show_world_boundary:
+			glDisable(GL_DEPTH_TEST)
+			self.draw_world_boundary()				
+			glEnable(GL_DEPTH_TEST)
+			
+		glPopMatrix()					
+			
 		# Outline
+		glDisable(GL_DEPTH_TEST)
+
 		glLineWidth(2)
 		glColor3f(1, 1, 1)
 		glBegin(GL_LINE_LOOP)
@@ -1175,14 +1250,9 @@ class GLVisualisation3D(object):
 		glVertex3f(c[0]+0.5*s, c[2]+0.5*s, 0.1)
 		glVertex3f(c[0]-0.5*s, c[2]+0.5*s, 0.1)
 		glEnd()
-
+		
 		glEnable(GL_DEPTH_TEST)
-
-		if show_shadow_boids:
-			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
-
-		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
-
+		
 		# Side view (Y up, X right, looking in negative Z direction)
 
 		glViewport(self.sideview_left, self.sideview_top-self.sideview_size, self.sideview_size, self.sideview_size)
@@ -1192,14 +1262,11 @@ class GLVisualisation3D(object):
 		c = self.world.center
 		s = max(self.world.size[0], self.world.size[1])
 		# Make view slightly larger to allow boids to go outside world range and still be visible
-		s *= 1.1
+		s *= 1.2
 		glOrtho(c[0]-0.5*s, c[0]+0.5*s, c[1]-0.5*s, c[1]+0.5*s, self.world.min[2]-10, self.world.max[2]+10)
 
 		glMatrixMode(GL_MODELVIEW)
 		glLoadIdentity()
-
-		if show_axes:
-			self.draw_axes()
 
 		# Outline
 		glLineWidth(2)
@@ -1211,10 +1278,19 @@ class GLVisualisation3D(object):
 		glVertex2f(c[0]-0.5*s, c[1]+0.5*s)
 		glEnd()
 
+		if show_axes:
+			self.draw_axes()
+
 		if show_shadow_boids:
 			self.draw_shadow_boids(shadow_boids, shadow_big_boids, point_size=point_size)
 
 		self.draw_boids_as_points(point_size, boids, big_boids=big_boids, shadow_boids=shadow_boids, show_velocity_vectors=False, show_shadow_velocity_difference=show_shadow_boids, bird_perspective=bird_perspective)
+		
+		if self.show_world_boundary:
+			glDisable(GL_DEPTH_TEST)
+			self.draw_world_boundary()				
+			glEnable(GL_DEPTH_TEST)
+		
 
 	def plot(self, plot_shadow_boids):
 		glViewport(0, 0, self.screen_width, self.screen_height)
@@ -1268,34 +1344,16 @@ class GLVisualisation3D(object):
 
 		left = 0
 		top = self.stats_height
-
-		self.stats_text_drawer.draw("Nudged" % hv.bbox_diagonal[-1], left, top)
-		top -= gh
-		self.stats_text_drawer.draw("-"*20, left, top)
-		top -= gh
-		self.stats_text_drawer.draw("Size         : %0.1f" % hv.bbox_diagonal[-1], left, top)
-		top -= gh
-		self.stats_text_drawer.draw("Components   : %d" % hv.num_conn_components[-1], left, top)
-		top -= gh
-		self.stats_text_drawer.draw("Pos. entropy : %0.3f" % hv.pos_entropy[-1], left, top)
-		top -= gh
-		self.stats_text_drawer.draw("Vel. entropy : %0.3f" % hv.vel_entropy[-1], left, top)
-		top -= gh
-		self.stats_text_drawer.draw("PosVel. ent. : %0.3f" % hv.posvel_entropy[-1], left, top)
-		top -= gh
-
+		
 		# self.print_text("Velocity: %0.2f" % (boids.velocity_stddev))
 		# self.print_text("%0.3f; %0.3f; %0.3f" % (boids.c_int(5),boids.c_int(10),boids.c_int(20)))
 		# self.print_text("%0.3f; %0.3f" % (boids.c_int(50),boids.c_int(100)))
-		if plot_shadow_boids:
+		if plot_shadow_boids and True:
 
 			# self.print_text("Unmodified")
-			hv = self.shadow_boids_historic_values
+			hv = self.shadow_boids_historic_values			
 
-			left = self.stats_width + self.stats_separation
-			top = self.stats_height
-
-			self.stats_text_drawer.draw("Undisturbed" % hv.bbox_diagonal[-1], left, top)
+			self.stats_text_drawer.draw("Original" % hv.bbox_diagonal[-1], left, top)
 			top -= gh
 			self.stats_text_drawer.draw("-"*20, left, top)
 			top -= gh
@@ -1312,6 +1370,24 @@ class GLVisualisation3D(object):
 
 			# self.print_text("Orig. distance: %0.1f" % (shadow_boids.position_stddev))
 			# self.print_text("Orig. velocity: %0.1f" % (shadow_boids.velocity_stddev))
+		
+		left = self.stats_width + self.stats_separation
+		top = self.stats_height
+
+		self.stats_text_drawer.draw("Nudged" % hv.bbox_diagonal[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("-"*20, left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Size         : %0.1f" % hv.bbox_diagonal[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Components   : %d" % hv.num_conn_components[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Pos. entropy : %0.3f" % hv.pos_entropy[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("Vel. entropy : %0.3f" % hv.vel_entropy[-1], left, top)
+		top -= gh
+		self.stats_text_drawer.draw("PosVel. ent. : %0.3f" % hv.posvel_entropy[-1], left, top)
+		top -= gh
 
 		#
 		# Images and such

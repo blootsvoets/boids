@@ -130,6 +130,8 @@ def process_events(glgame, worker, boids, big_boids, shadow_boids, shadow_big_bo
 				glgame.toggle_shadow_boids()
 			elif event.key is K_v:
 				glgame.toggle_velocity_vectors()
+			elif event.key is K_w:
+				glgame.toggle_world_boundary()                
 			else:
 				match = numbers.match(event.unicode)
 				if match:

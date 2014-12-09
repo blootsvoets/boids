@@ -16,7 +16,7 @@ s.smoothness = 1
 #s.num_boids = 100
 #s.dt = 0.0001
 
-s.boid_scale_factor = 0.03
+s.boid_scale_factor = 0.04
 
 # Top-left in the upper-right screen
 s.logo_left = 1.0 * (COLLAB_WIDTH - 1920 + 30) / COLLAB_WIDTH
@@ -38,6 +38,8 @@ s.equation_left = 0.01
 s.equation_top = 0.15
 s.equation_width = 0.2
 
+s.grid_size = 10
+s.grid_line_spacing = 1
 
 # Main 3D view
 v = s.mainview_boids

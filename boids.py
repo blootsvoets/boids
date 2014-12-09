@@ -284,7 +284,8 @@ class Boids(VectorCollection):
 		self.rule2_threshold = rule2_threshold
 		self.rule2_factor = rule2_factor*dt
 		self.rule3_factor = rule3_factor*dt
-		self.bounds = BoundingBox(min=[-1.0, -0.5, -1.1], max=[1.9, 1.5, 2.1])
+		#self.bounds = BoundingBox(min=[-1.0, -0.5, -1.1], max=[1.9, 1.5, 2.1])
+		self.bounds = BoundingBox(min=[-2.0, 0, -2], max=[2, 2, 2])
 		self.bounds_factor = bounds_factor*dt
 		self.escapes = np.array([])
 		self.escape_threshold = escape_threshold
