@@ -4,9 +4,7 @@ A simple model of a flock of birds, attacked by a predating bird.
 
 ## Usage
 
-Install matplotlib. For quivers in the 3D representation, version of matplotlib must be > 0.4.
-
-To run boids, execute run_boids.py. It takes one optional argument, being the number of dimensions used, either 2 or 3.
+Install NumPy, PIL, PyGame and PyOpenGL. To run boids, execute viewer.py with Python 2.
 
 ## Model
 
@@ -18,23 +16,27 @@ Classic rules that are enforced on the boids:
 2. if your neighbour is too close, move away from it
 3. converge to the average velocity of the flock
 
-This converges a bit too fast (or keeps moving offscreen) so I added a few dynamics.
+For each rule, not the whole flock is considered, only the N closest neighbors. A few additional rules were added to keep the flock on screen and interesting:
 
-Additional rules:
-
-- every X iterations, a random 1/3rd of the boids move to a random direction in [0, 1]^3, 
-- set a maximum velocity (otherwise, the boids keep increasing speed if a bounding box or fixed direction is implemented)
+- set a minimum and maximum velocity
 - escape from the big bird, if it is close
-- escape from a point on the screen, if it is close (this could be a mouse click or finger tap)
-- force the boids within a bounding box (not currently used)
+- escape from a given point if it is close; this is activated by a mouse click.
+- force the boids within a bounding box
 
 The big bird has 2 rules:
 
 - go to the center of the flock
-- set a maximum velocity (otherwise, velocity keeps increasing and the big bird is hardly on the screen)
+- set a minimum and maximum velocity (otherwise, velocity keeps increasing and the big bird is hardly on the screen)
 
 Each of the rules has one or two parameters, to make their effect stronger or weaker. This can also be tweaked towards the actual visualisation used.
 
 ## Implementation notes
 
-The boids are computed in one process, the visualisation in another.
+The code uses 8 processes: 1 for visualisation; 1 for computing metrics; 3 for the simulation of the original flock; 3 for the simulation of the nudged flock.
+
+The visualisation is done with OpenGL, with a custom font and bird mesh.
+
+## Authors
+
+Simulation and threading: Joris Borgdorff <j.borgdorff@esciencecenter.nl>
+Visualisation and user interface: Paul Melis <paul.melis@surfsara.nl>
