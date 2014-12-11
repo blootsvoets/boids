@@ -126,7 +126,7 @@ class GLPyGame3D(object):
 		
 	def toggle_world_boundary(self):
 		self.vis.show_world_boundary = not self.vis.show_world_boundary
-
+		
 	def draw(self, animating, boids, big_boids, shadow_boids = None, shadow_big_boids = None):
 		plot_shadow_boids = shadow_boids is not None	
 
@@ -135,21 +135,8 @@ class GLPyGame3D(object):
 			self.boid_metrics.add_input('boids', boids)
 			if plot_shadow_boids:
 				self.boid_metrics.add_input('boids', shadow_boids)
-				
-		# XXX needs update
-		# with open("/Users/joris/Desktop/velocity.csv", "a") as f:
-		# 	f.write("%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%i\n" % (
-		# 		boids.position_xyz_entropy(num_pos_bins),
-		# 		boids.velocity_xyz_entropy(num_vel_bins),
-		# 		boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins),
-		# 		shadow_boids.position_xyz_entropy(num_pos_bins),
-		# 		shadow_boids.velocity_xyz_entropy(num_vel_bins),
-		# 		shadow_boids.position_velocity_entropy(num_vel_bins=num_vel_bins,num_pos_bins=num_pos_bins),
-		# 		self.has_event)
-		# 	)
 
 		# Draw
-
 		self.vis.draw(animating, boids, big_boids, shadow_boids, shadow_big_boids, show_shadow_boids = self.show_shadow_boids, bird_perspective = self.bird_perspective, show_axes = self.show_axes)
 
 		# store statistics
