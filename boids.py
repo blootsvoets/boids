@@ -297,8 +297,8 @@ class Boids(VectorCollection):
 		self.tmp_matrix = np.zeros((self.size,self.dimensions))
 		self.use_process = use_process
 		if self.use_process:
-			self.velocity_worker = worker.WorkerServer('converge velocity', NeighborConverge(self.dimensions,self.size,self.rule3_factor), {'matrix': None}, {'converged': None})
-			self.position_worker = worker.WorkerServer('converge position', NeighborConverge(self.dimensions,self.size,self.rule1_factor), {'matrix': None}, {'converged': None})
+			self.velocity_worker = worker.WorkerProcess('converge velocity', NeighborConverge(self.dimensions,self.size,self.rule3_factor), {'matrix': None}, {'converged': None})
+			self.position_worker = worker.WorkerProcess('converge position', NeighborConverge(self.dimensions,self.size,self.rule1_factor), {'matrix': None}, {'converged': None})
 
 	def finalize(self):
 		if self.use_process:

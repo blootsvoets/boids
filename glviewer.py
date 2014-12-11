@@ -102,7 +102,7 @@ class GLPyGame3D(object):
 		self.has_event = False
 		self.had_vectors = False
 
-		self.boid_metrics = worker.WorkerServer('calculate plot metrics', MetricCalculator(), {'boids': None}, {'metrics': None})
+		self.boid_metrics = worker.WorkerProcess('calculate plot metrics', MetricCalculator(), {'boids': None}, {'metrics': None})
 
 		glutInit()
 

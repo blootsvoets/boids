@@ -17,22 +17,8 @@ class Worker(object):
 		
 	def run(self):
 		while self.worker.continue_run():
-			inputs = {}
-			nowait_inputs = {}
-
-			for key in self.worker.input_queues.keys():
-				inputs[key] = self.worker.get_input(key)
-					
-			for key in self.worker.nowait_queues.keys():
-				nowait_inputs[key] = []
-				try:
-					value = self.worker.get_input_nowait(key)
-					if value is None:
-						nowait_inputs[key] = None
-						break
-					nowait_inputs[key].append(value)
-				except:
-					continue
+			inputs = self.worker.get_all_input()
+			nowait_inputs = self.worker.get_all_nowait()
 
 			if None in inputs.values() or None in nowait_inputs.values():
 				break
@@ -40,8 +26,7 @@ class Worker(object):
 			results = self.iteration(inputs, nowait_inputs)
 			
 			if self.worker.continue_run():
-				for queue, result in results.items():
-					self.worker.add_result(queue, result)
+				self.worker.add_all_results(results)
 
 	def iteration(self, inputs, nowait_inputs):
 		return None
@@ -49,20 +34,31 @@ class Worker(object):
 	def finalize(self):
 		pass
 
+def clear_queues(queues, empty_first = False):
+	if empty_first:
+		for name in queues.keys():
+			while not queues[name].empty():
+				val = queues[name].get()
+				if val is None:
+					del queues[name]
+
+	for q in queues.itervalues():
+		while q.get() is not None:
+			continue
+
+def close_queues(queues):
+	for q in queues.itervalues():
+		q.put(None)
+		q.close()
+
 class WorkerClient(object):
 	def __init__(self, target, input_queues, nowait_queues, result_queues, is_running, *queues):
 		self.target = target
-		self.input_queues = self.add_queues(input_queues, queues)
-		self.nowait_queues = self.add_queues(nowait_queues, queues)
-		self.result_queues = self.add_queues(result_queues, queues)
+		self.input_queues = input_queues
+		self.nowait_queues = nowait_queues
+		self.result_queues = result_queues
 		self.is_running = is_running
 		self.t = SimpleTimer(use_process_name=True)
-	
-	def add_queues(self, idxs, queues):
-		qs = {}
-		for name, idx in idxs.iteritems():
-			qs[name] = queues[idx]
-		return qs
 	
 	def work(self):
 		self.t.reset()
@@ -75,24 +71,33 @@ class WorkerClient(object):
 		
 		self.t.print_time("finished running")
 		# empty input queue
-		for q in self.input_queues.itervalues():
-			while q.get() is not None:
-				continue
-
-		# empty input queue
-		for q in self.nowait_queues.itervalues():
-			while q.get() is not None:
-				continue
-	
-		# send final call
-		for q in self.result_queues.itervalues():
-			q.put(None)
-			q.close()
+		clear_queues(self.input_queues)
+		clear_queues(self.nowait_queues)
+		close_queues(self.result_queues)
 		
 		self.t.print_time("finalizing target")
 		self.target.finalize()
 		self.t.print_time("finalized target")
 		
+	def get_all_input(self):
+		return dict((k, self.get_input(k)) for k in self.input_queues.iterkeys())
+	
+	def get_all_nowait(self):
+		nowait_inputs = {}
+		for key in self.nowait_queues.iterkeys():
+			nowait_inputs[key] = []
+			try:
+				while True:
+					value = self.get_input_nowait(key)
+					if value is None:
+						nowait_inputs[key] = None
+						break
+					nowait_inputs[key].append(value)
+			except:
+				continue
+		
+		return nowait_inputs
+	
 	def has_input_queue(self, queue):
 		return queue in self.input_queues
 
@@ -101,6 +106,10 @@ class WorkerClient(object):
 	
 	def add_result(self, queue, value):
 		self.result_queues[queue].put(value)
+	
+	def add_all_results(self, results):
+		for queue, result in results.iteritems():
+			self.add_result(queue, result)
 	
 	def get_input(self, queue):
 		value = self.input_queues[queue].get()
@@ -119,35 +128,30 @@ class WorkerClient(object):
 	def continue_run(self):
 		return self.is_running.value
 
-class WorkerServer(object):
+class WorkerProcess(object):
 	def __init__(self, pname, target, input_queue_args, result_queue_args):
 		self.t = SimpleTimer(name='manager_' + pname)
 		input_queues = {}
 		nowait_queues = {}
 		result_queues = {}
-		queues = []
 	
 		for name, size in input_queue_args.iteritems():
 			if size is None:
-				input_queues[name] = len(queues)
-				queues.append(mp.Queue())
+				input_queues[name] = mp.Queue()
 			elif size is 0:
-				nowait_queues[name] = len(queues)
-				queues.append(mp.Queue())
+				nowait_queues[name] = mp.Queue()
 			else:
-				input_queues[name] = len(queues)
-				queues.append(mp.Queue(maxsize=size))
+				input_queues[name] = mp.Queue(maxsize=size)
 
 		for name, size in result_queue_args.iteritems():
-			result_queues[name] = len(queues)
 			if size is None:
-				queues.append(mp.Queue())
+				result_queues[name] = mp.Queue()
 			else:
-				queues.append(mp.Queue(maxsize=size))
+				result_queues[name] = mp.Queue(maxsize=size)
 	
 		is_running = mp.Value('b', True)
 		
-		args = (target, input_queues, nowait_queues, result_queues, is_running) + tuple(queues)
+		args = (target, input_queues, nowait_queues, result_queues, is_running)
 		print args
 		
 		self.process = mp.Process(name=pname,target=do_work,args=args)
@@ -176,26 +180,11 @@ class WorkerServer(object):
 		self.stop_running()
 		# send final call
 		self.t.print_time("final iter value")
-		for q in self.client.input_queues.itervalues():
-			q.put(None)
-			q.close()
-		# send final call
+		close_queues(self.client.input_queues)
 		self.t.print_time("final nowait value")
-		for q in self.client.nowait_queues.itervalues():
-			q.put(None)
-			q.close()
+		close_queues(self.client.nowait_queues)
 		# empty result queue
-		queues = dict(self.client.result_queues)
-
-		for name in queues.keys():
-			while not queues[name].empty():
-				val = queues[name].get()
-				if val is None:
-					del queues[name]
-
-		for q in queues.itervalues():
-			while q.get() is not None:
-				continue
+		clear_queues(self.client.result_queues, empty_first = True)
 
 		self.process.join()
 	

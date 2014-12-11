@@ -243,13 +243,13 @@ if __name__ == '__main__':
 	smoothness = settings.smoothness
 
 	# queue size gives bounds for how far the thread may be ahead
-	bds = worker.WorkerServer('boids', BoidSimulation(), {'escape': 0}, {'boids': 2, 'big_boids': 2})
+	bds = worker.WorkerProcess('boids', BoidSimulation(), {'escape': 0}, {'boids': 2, 'big_boids': 2})
 
 	boids = bds.get_result('boids')
 	big_boids = bds.get_result('big_boids')
 
 	if with_shadow_model:
-		shadow_bds = worker.WorkerServer('unaltered boids', ShadowBoidSimulation(boids, big_boids), {}, {'boids': 2, 'big_boids': 2})
+		shadow_bds = worker.WorkerProcess('unaltered boids', ShadowBoidSimulation(boids, big_boids), {}, {'boids': 2, 'big_boids': 2})
 
 		shadow_boids = shadow_bds.get_result('boids')
 		shadow_big_boids = shadow_bds.get_result('big_boids')
