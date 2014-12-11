@@ -80,11 +80,11 @@ class WorkerClient(object):
 		self.t.print_time("finalized target")
 		
 	def get_all_input(self):
-		return dict((k, self.get_input(k)) for k in self.input_queues.iterkeys())
+		return dict((k, self.get_input(k)) for k in self.input_queues.keys())
 	
 	def get_all_nowait(self):
 		nowait_inputs = {}
-		for key in self.nowait_queues.iterkeys():
+		for key in self.nowait_queues.keys():
 			nowait_inputs[key] = []
 			try:
 				while True:
