@@ -1348,8 +1348,7 @@ class GLVisualisation3D(object):
 		# self.print_text("Velocity: %0.2f" % (boids.velocity_stddev))
 		# self.print_text("%0.3f; %0.3f; %0.3f" % (boids.c_int(5),boids.c_int(10),boids.c_int(20)))
 		# self.print_text("%0.3f; %0.3f" % (boids.c_int(50),boids.c_int(100)))
-		if plot_shadow_boids and True:
-
+		if plot_shadow_boids:
 			# self.print_text("Unmodified")
 			hv = self.shadow_boids_historic_values			
 
@@ -1373,6 +1372,8 @@ class GLVisualisation3D(object):
 		
 		left = self.stats_width + self.stats_separation
 		top = self.stats_height
+
+		hv = self.boids_historic_values			
 
 		self.stats_text_drawer.draw("Nudged" % hv.bbox_diagonal[-1], left, top)
 		top -= gh
